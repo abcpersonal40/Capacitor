@@ -3,6 +3,9 @@ import UserNotifications
 #if canImport(AlarmKit)
 import AlarmKit
 import SwiftUI
+
+@available(iOS 26.0, *)
+private struct NativeKitAlarmMetadata: AlarmMetadata {}
 #endif
 
 final class NativeKitAlarmAdapter {
@@ -72,7 +75,7 @@ final class NativeKitAlarmAdapter {
                     if state == .authorized {
                         let stop = AlarmButton(text: "Stop", textColor: .white, systemImageName: "stop.circle.fill")
                         let alert = AlarmPresentation.Alert(title: LocalizedStringResource(stringLiteral: title), stopButton: stop)
-                        let attributes = AlarmAttributes(presentation: AlarmPresentation(alert: alert), tintColor: .blue)
+                        let attributes = AlarmAttributes<NativeKitAlarmMetadata>(presentation: AlarmPresentation(alert: alert), tintColor: .blue)
                         let configuration = AlarmManager.AlarmConfiguration.alarm(schedule: .fixed(date), attributes: attributes)
                         _ = try await AlarmManager.shared.schedule(id: platformId, configuration: configuration)
                         record["exact"] = true

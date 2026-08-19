@@ -26,6 +26,12 @@ describe('custom native plugin integration', () => {
     expect(pluginPackage).toContain('name: "NativekitCustomNative"');
     expect(appPackage).toContain('.product(name: "NativekitCustomNative"');
   });
+
+  it('gives AlarmKit attributes an explicit metadata type', () => {
+    const alarm = read('plugins/custom-native/ios/Sources/NativeKitCustomPlugin/AlarmAdapter.swift');
+    expect(alarm).toContain('struct NativeKitAlarmMetadata: AlarmMetadata');
+    expect(alarm).toContain('AlarmAttributes<NativeKitAlarmMetadata>');
+  });
 });
 
 describe('isolated renderer lifecycle hardening', () => {
