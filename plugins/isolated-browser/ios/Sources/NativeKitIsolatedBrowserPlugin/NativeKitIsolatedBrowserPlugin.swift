@@ -115,13 +115,13 @@ public final class NativeKitIsolatedBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
                 sessionId: sessionId,
                 appId: appId,
                 token: token,
-                title: required(call, "title"),
+                title: try required(call, "title"),
                 packageRoot: root,
-                entry: required(call, "entry"),
-                bootstrap: required(call, "bootstrap"),
+                entry: try required(call, "entry"),
+                bootstrap: try required(call, "bootstrap"),
                 allowedHosts: try validatedAllowedHosts(call.getArray("allowedHosts", String.self) ?? []),
                 allowDirectNetwork: call.getBool("allowDirectNetwork") ?? false,
-                hangTerminationDelayMs: requiredInt(call, "hangTerminationDelayMs")
+                hangTerminationDelayMs: try requiredInt(call, "hangTerminationDelayMs")
             )
             controller.onRequest = { [weak self] request, origin in
                 self?.notifyListeners("isolatedBrowserRequest", data: [
@@ -208,7 +208,7 @@ public final class NativeKitIsolatedBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
             let capability = try required(call, "capability")
             let method = try required(call, "method")
             let summary = call.getString("argumentSummary") ?? ""
-            let timeoutMs = max(1_000, min(120_000, requiredInt(call, "timeoutMs")))
+            let timeoutMs = max(1_000, min(120_000, try requiredInt(call, "timeoutMs")))
             guard requestId.count <= 100, appName.count <= 120, capability.count <= 80, method.count <= 200, summary.count <= 1_500 else {
                 throw pluginError("Permission request metadata is too large")
             }
