@@ -137,6 +137,7 @@ describe('trusted call-time consent and bridge-free URL mode', () => {
     expect(store).toContain('static let remoteProfileIdentifier');
     expect(remote).toContain('url.scheme?.lowercased() == "https"');
     expect(remote).toContain('decisionHandler(.deny)');
+    expect(remote).toContain('@available(iOS 18.4, *)\n    func webView(_ webView: WKWebView, runOpenPanelWith');
     expect(remote).not.toContain('WKUserScript');
     expect(remote).not.toContain('addScriptMessageHandler');
     expect(remote).not.toContain('userContentController.add');

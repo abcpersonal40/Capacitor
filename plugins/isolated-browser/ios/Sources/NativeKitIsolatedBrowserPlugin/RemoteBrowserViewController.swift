@@ -108,6 +108,7 @@ final class RemoteBrowserViewController: UIViewController, WKNavigationDelegate,
         decisionHandler(.deny)
     }
 
+    @available(iOS 18.4, *)
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
         completionHandler(nil)
     }
