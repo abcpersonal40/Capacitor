@@ -2,10 +2,10 @@
 import PackageDescription
 
 let package = Package(
-    name: "NativeKitIsolatedBrowser",
+    name: "NativekitIsolatedBrowser",
     platforms: [.iOS(.v15)],
     products: [
-        .library(name: "NativeKitIsolatedBrowser", targets: ["NativeKitIsolatedBrowserPlugin"])
+        .library(name: "NativekitIsolatedBrowser", targets: ["NativeKitIsolatedBrowserPlugin"])
     ],
     dependencies: [
         .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", exact: "8.5.0")
