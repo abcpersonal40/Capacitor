@@ -1,0 +1,657 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nativekit.local/app.config.schema.json",
+  "title": "NativeKit universal shell configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "app",
+    "web",
+    "network",
+    "features",
+    "permissions",
+    "android",
+    "ios",
+    "appBrowser",
+    "backgroundRunner",
+    "security"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "app": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "id",
+        "versionName",
+        "versionCode",
+        "buildNumber",
+        "defaultLanguage",
+        "urlScheme"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*){1,}$"
+        },
+        "versionName": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+        },
+        "versionCode": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2100000000
+        },
+        "buildNumber": {
+          "type": "string",
+          "pattern": "^[0-9]+(?:\\.[0-9]+){0,2}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "defaultLanguage": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 15
+        },
+        "urlScheme": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*$"
+        }
+      }
+    },
+    "web": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "staticDir",
+        "framework",
+        "nativeStagingDir",
+        "webOutputDir",
+        "injectBridge",
+        "serviceWorker"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "static",
+            "framework"
+          ]
+        },
+        "staticDir": {
+          "$ref": "#/$defs/safeRelativePath"
+        },
+        "framework": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "workDir",
+            "buildCommand",
+            "outputDir"
+          ],
+          "properties": {
+            "workDir": {
+              "$ref": "#/$defs/safeRelativePath"
+            },
+            "buildCommand": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "outputDir": {
+              "$ref": "#/$defs/safeRelativePath"
+            }
+          }
+        },
+        "nativeStagingDir": {
+          "$ref": "#/$defs/safeRelativePath"
+        },
+        "webOutputDir": {
+          "$ref": "#/$defs/safeRelativePath"
+        },
+        "injectBridge": {
+          "type": "boolean"
+        },
+        "serviceWorker": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabledForWebTarget",
+            "cacheName",
+            "offlineFallback"
+          ],
+          "properties": {
+            "enabledForWebTarget": {
+              "type": "boolean"
+            },
+            "cacheName": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "offlineFallback": {
+              "$ref": "#/$defs/safeRelativePath"
+            }
+          }
+        }
+      }
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nativeHttp",
+        "patchFetch",
+        "patchXMLHttpRequest",
+        "allowCleartext",
+        "allowedHostnames",
+        "connectTimeoutMs",
+        "readTimeoutMs"
+      ],
+      "properties": {
+        "nativeHttp": {
+          "type": "boolean"
+        },
+        "patchFetch": {
+          "type": "boolean"
+        },
+        "patchXMLHttpRequest": {
+          "type": "boolean"
+        },
+        "allowCleartext": {
+          "type": "boolean"
+        },
+        "allowedHostnames": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          }
+        },
+        "connectTimeoutMs": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 300000
+        },
+        "readTimeoutMs": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 900000
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "camera",
+        "location",
+        "backgroundLocation",
+        "haptics",
+        "localNotifications",
+        "pushNotificationsReady",
+        "advancedAlarms",
+        "backgroundRunner",
+        "sqlite",
+        "secureStorage",
+        "filesystem",
+        "fileTransfer",
+        "sharing",
+        "networkStatus",
+        "nativeSSE",
+        "appBrowser",
+        "inAppBrowser"
+      ],
+      "properties": {
+        "camera": {
+          "type": "boolean"
+        },
+        "location": {
+          "type": "boolean"
+        },
+        "backgroundLocation": {
+          "type": "boolean"
+        },
+        "haptics": {
+          "type": "boolean"
+        },
+        "localNotifications": {
+          "type": "boolean"
+        },
+        "pushNotificationsReady": {
+          "type": "boolean"
+        },
+        "advancedAlarms": {
+          "type": "boolean"
+        },
+        "backgroundRunner": {
+          "type": "boolean"
+        },
+        "sqlite": {
+          "type": "boolean"
+        },
+        "secureStorage": {
+          "type": "boolean"
+        },
+        "filesystem": {
+          "type": "boolean"
+        },
+        "fileTransfer": {
+          "type": "boolean"
+        },
+        "sharing": {
+          "type": "boolean"
+        },
+        "networkStatus": {
+          "type": "boolean"
+        },
+        "nativeSSE": {
+          "type": "boolean"
+        },
+        "appBrowser": {
+          "type": "boolean"
+        },
+        "inAppBrowser": {
+          "type": "boolean"
+        }
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "camera",
+        "photos",
+        "locationWhenInUse",
+        "locationAlways",
+        "notifications",
+        "alarmKit"
+      ],
+      "properties": {
+        "camera": {
+          "$ref": "#/$defs/purpose"
+        },
+        "photos": {
+          "$ref": "#/$defs/purpose"
+        },
+        "locationWhenInUse": {
+          "$ref": "#/$defs/purpose"
+        },
+        "locationAlways": {
+          "$ref": "#/$defs/purpose"
+        },
+        "notifications": {
+          "$ref": "#/$defs/purpose"
+        },
+        "alarmKit": {
+          "$ref": "#/$defs/purpose"
+        }
+      }
+    },
+    "android": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minSdk",
+        "targetSdk",
+        "compileSdk",
+        "exactAlarmPermissionMode",
+        "fullScreenAlarm",
+        "backgroundLocationForegroundService",
+        "alarmSoundName",
+        "notificationChannelId",
+        "alarmChannelId"
+      ],
+      "properties": {
+        "minSdk": {
+          "type": "integer",
+          "minimum": 24,
+          "maximum": 36
+        },
+        "targetSdk": {
+          "type": "integer",
+          "minimum": 24,
+          "maximum": 36
+        },
+        "compileSdk": {
+          "type": "integer",
+          "minimum": 24,
+          "maximum": 36
+        },
+        "exactAlarmPermissionMode": {
+          "enum": [
+            "schedule",
+            "use",
+            "none"
+          ]
+        },
+        "fullScreenAlarm": {
+          "type": "boolean"
+        },
+        "backgroundLocationForegroundService": {
+          "type": "boolean"
+        },
+        "alarmSoundName": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "notificationChannelId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "alarmChannelId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+$"
+        }
+      }
+    },
+    "ios": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deploymentTarget",
+        "teamId",
+        "alarmKitOnIOS26",
+        "backgroundFetch",
+        "backgroundProcessing",
+        "backgroundLocation",
+        "pushCapabilityConfigured"
+      ],
+      "properties": {
+        "deploymentTarget": {
+          "type": "string",
+          "pattern": "^(1[5-9]|2[0-9])\\.[0-9]+$"
+        },
+        "teamId": {
+          "type": "string",
+          "pattern": "^$|^[A-Z0-9]{10}$"
+        },
+        "alarmKitOnIOS26": {
+          "type": "boolean"
+        },
+        "backgroundFetch": {
+          "type": "boolean"
+        },
+        "backgroundProcessing": {
+          "type": "boolean"
+        },
+        "backgroundLocation": {
+          "type": "boolean"
+        },
+        "pushCapabilityConfigured": {
+          "type": "boolean"
+        }
+      }
+    },
+    "appBrowser": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "maxApps",
+        "maxPackageBytes",
+        "maxFiles",
+        "auditLogLimit",
+        "maxRequestsPerMinute",
+        "defaultCapabilities",
+        "permissionPrompts",
+        "allowDirectWebNetwork",
+        "urlMode",
+        "renderer",
+        "isolated"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "maxApps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "maxPackageBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 104857600
+        },
+        "maxFiles": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000
+        },
+        "auditLogLimit": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 50000
+        },
+        "maxRequestsPerMinute": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 10000
+        },
+        "defaultCapabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "permissions",
+              "http",
+              "camera",
+              "location",
+              "backgroundLocation",
+              "haptics",
+              "notifications",
+              "alarms",
+              "background",
+              "preferences",
+              "secureStorage",
+              "sqlite",
+              "filesystem",
+              "fileTransfer",
+              "sharing",
+              "networkStatus",
+              "appInfo",
+              "pushNotifications",
+              "browser"
+            ]
+          }
+        },
+        "allowDirectWebNetwork": {
+          "type": "boolean"
+        },
+        "renderer": {
+          "enum": [
+            "iframe",
+            "isolated"
+          ]
+        },
+        "isolated": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "fallbackToIframe",
+            "stageChunkBytes",
+            "androidMinApi",
+            "hangTerminationDelayMs"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "fallbackToIframe": {
+              "type": "boolean"
+            },
+            "stageChunkBytes": {
+              "type": "integer",
+              "minimum": 16384,
+              "maximum": 524288
+            },
+            "androidMinApi": {
+              "type": "integer",
+              "minimum": 28,
+              "maximum": 36
+            },
+            "hangTerminationDelayMs": {
+              "type": "integer",
+              "minimum": 1000,
+              "maximum": 30000
+            }
+          }
+        },
+        "permissionPrompts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "requestTimeoutMs",
+            "requestedCapabilityDefault",
+            "unrequestedCapabilityDefault"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "requestTimeoutMs": {
+              "type": "integer",
+              "minimum": 5000,
+              "maximum": 110000
+            },
+            "requestedCapabilityDefault": {
+              "enum": [
+                "ask",
+                "allow",
+                "block"
+              ]
+            },
+            "unrequestedCapabilityDefault": {
+              "enum": [
+                "ask",
+                "allow",
+                "block"
+              ]
+            }
+          }
+        },
+        "urlMode": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "allowedHosts"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "allowedHosts": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 260,
+                "pattern": "^(?:\\*\\.)?[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?(?::[1-9][0-9]{0,4})?$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "backgroundRunner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "event",
+        "repeat",
+        "intervalMinutes",
+        "autoStart",
+        "taskIdentifier",
+        "defaultSyncUrl"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]+$"
+        },
+        "event": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]+$"
+        },
+        "repeat": {
+          "type": "boolean"
+        },
+        "intervalMinutes": {
+          "type": "integer",
+          "minimum": 15,
+          "maximum": 10080
+        },
+        "autoStart": {
+          "type": "boolean"
+        },
+        "taskIdentifier": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]+$"
+        },
+        "defaultSyncUrl": {
+          "type": "string",
+          "maxLength": 2048
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trustedLocalContentOnly",
+        "allowNavigation",
+        "contentSecurityPolicy"
+      ],
+      "properties": {
+        "trustedLocalContentOnly": {
+          "const": true
+        },
+        "allowNavigation": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "contentSecurityPolicy": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 2000
+        }
+      }
+    }
+  },
+  "$defs": {
+    "safeRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 250,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 15,
+      "maxLength": 500
+    }
+  }
+}

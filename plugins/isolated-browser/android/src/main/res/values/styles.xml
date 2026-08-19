@@ -1,0 +1,10 @@
+<resources>
+  <style name="NativeKitIsolatedBrowserTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <item name="android:windowActionModeOverlay">true</item>
+    <item name="android:windowNoTitle">true</item>
+    <item name="android:colorAccent">#2f91ff</item>
+    <item name="android:navigationBarColor">#07111f</item>
+    <item name="android:statusBarColor">#07111f</item>
+    <item name="android:windowLightStatusBar">false</item>
+  </style>
+</resources>

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <title>NativeKit Demo</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./app-browser.css">
+  <!-- scripts/prepare-web.mjs injects nativekit.js before this application script. -->
+  <script defer src="./app.js"></script>
+  <script defer src="./app-browser-manager.js"></script>
+</head>
+<body>
+  <header class="hero">
+    <div class="badge">CAPACITOR 8 · LOCAL BUNDLE</div>
+    <h1>NativeKit Universal Shell</h1>
+    <p>একটি replaceable web UI, একটি স্থায়ী <code>window.NativeKit</code> native façade।</p>
+    <div id="platform" class="platform">Bridge loading…</div>
+  </header>
+
+  <main>
+    <section class="panel status-panel">
+      <div>
+        <p class="eyebrow">RUNTIME</p>
+        <h2>ক্ষমতা ও কনফিগারেশন</h2>
+      </div>
+      <button id="refresh" class="secondary">Refresh</button>
+      <pre id="status" aria-live="polite">Waiting for NativeKit…</pre>
+    </section>
+
+    <section class="grid" aria-label="Native feature tests">
+      <article class="card">
+        <span class="icon">◎</span><h3>Permissions</h3>
+        <p>OS permission state দেখুন; prompt শুধু feature ব্যবহারের সময় দিন।</p>
+        <button data-action="permissions">Check status</button>
+      </article>
+      <article class="card">
+        <span class="icon">⌖</span><h3>Location</h3>
+        <p>Foreground precise position পড়ুন। Background GPS config-এ আলাদা gated।</p>
+        <button data-action="location">Get location</button>
+      </article>
+      <article class="card">
+        <span class="icon">▣</span><h3>Camera</h3>
+        <p>Camera/gallery chooser native prompt খুলুন।</p>
+        <button data-action="camera">Choose photo</button>
+      </article>
+      <article class="card">
+        <span class="icon">◉</span><h3>Haptics</h3>
+        <p>বর্তমানে খোলা app-এ native impact feedback দিন।</p>
+        <button data-action="haptic">Vibrate</button>
+      </article>
+      <article class="card">
+        <span class="icon">◷</span><h3>Reminder</h3>
+        <p>অনুমতি নিয়ে ৫ সেকেন্ড পরে local notification schedule করুন।</p>
+        <button data-action="notification">Schedule +5s</button>
+      </article>
+      <article class="card">
+        <span class="icon">↻</span><h3>Background runner</h3>
+        <p>Headless runner test event dispatch করুন; এটি exact timer নয়।</p>
+        <button data-action="background">Run test</button>
+      </article>
+      <article class="card">
+        <span class="icon">▤</span><h3>Preferences</h3>
+        <p>একটি JSON counter platform storage-এ persist করুন।</p>
+        <button data-action="storage">Increment</button>
+      </article>
+      <article class="card warning">
+        <span class="icon">◒</span><h3>Advanced alarm</h3>
+        <p>Exact/full-screen/AlarmKit capability দেখুন; default config-এ policy safety-এর জন্য off।</p>
+        <button data-action="alarms">Check alarm support</button>
+      </article>
+    </section>
+
+    <section class="panel network-panel">
+      <div>
+        <p class="eyebrow">NATIVE NETWORK</p>
+        <h2>REST/JSON test</h2>
+        <p>Installed app-এ explicit NativeKit HTTP browser CORS layer এড়িয়ে native transport ব্যবহার করে। Upstream TLS/auth/rate-limit তবু প্রযোজ্য।</p>
+      </div>
+      <form id="http-form">
+        <label for="url">HTTPS JSON endpoint</label>
+        <div class="input-row"><input id="url" type="url" placeholder="https://api.example.com/status" required><button>GET</button></div>
+      </form>
+    </section>
+
+    <section class="panel app-browser-panel" id="app-browser-manager">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">SANDBOXED APP BROWSER</p>
+          <h2>Third-party app manager</h2>
+          <p>Installed HTML/CSS/JS/Web Component সর্বোচ্চ-isolation renderer-এ চলে; প্রতিটি NativeKit call trusted host-এর tri-state policy/approval broker দিয়ে যায়। Remote HTTPS URL আলাদা browser-only mode—সেখানে NativeKit inject হয় না।</p>
+        </div>
+        <button id="apps-refresh" class="secondary" type="button">Refresh</button>
+      </div>
+
+      <div class="import-box">
+        <div class="field-grid">
+          <label>App ID (manifest না থাকলে optional)<input id="app-id" placeholder="com.example.myapp" autocomplete="off"></label>
+          <label>Display name (optional)<input id="app-name" placeholder="My mini app" autocomplete="off"></label>
+        </div>
+        <div class="import-actions">
+          <label class="file-button">ZIP / files বাছুন<input id="app-files" type="file" accept=".zip,.html,.htm,.css,.js,.mjs,.json,.svg,.png,.jpg,.jpeg,.webp,.woff,.woff2,.ttf" multiple></label>
+          <label class="file-button secondary">Folder বাছুন<input id="app-folder" type="file" webkitdirectory multiple></label>
+          <span id="import-selection" class="muted">কোনো package নির্বাচিত নয়</span>
+          <button id="app-install" type="button" disabled>Install / update</button>
+        </div>
+        <p class="hint"><strong>Recommended:</strong> root-এ <code>nativekit.manifest.json</code> ও <code>index.html</code> রাখুন। ZIP, multi-file, directory এবং Web Component metadata সমর্থিত।</p>
+      </div>
+
+
+      <div class="import-box url-browser-box">
+        <div class="section-heading compact"><div><p class="eyebrow">BRIDGE-FREE HTTPS</p><h3>Remote URL browser mode</h3></div></div>
+        <label for="remote-url">HTTPS URL</label>
+        <div class="input-row"><input id="remote-url" type="url" inputmode="url" placeholder="https://example.com" autocomplete="off" required><button id="remote-url-open" type="button">Open without NativeKit</button></div>
+        <p class="hint">শুধু HTTPS। এই page-এ <code>window.NativeKit</code>, broker transport, injected script বা NativeKit permission prompt থাকবে না। Cookies/storage browser profile-এ থাকে; app/host থেকে strongest available platform partition ব্যবহৃত হয়।</p>
+      </div>
+
+      <div class="permission-section">
+        <div class="section-heading compact"><div><p class="eyebrow">PENDING APPROVALS</p><h3>অপেক্ষমাণ native API call</h3></div><button id="permissions-refresh" class="secondary" type="button">Refresh</button></div>
+        <div id="permissions-empty" class="empty-state">কোনো permission request অপেক্ষমাণ নেই।</div>
+        <div id="permission-requests" class="permission-requests" aria-live="assertive"></div>
+      </div>
+
+      <div id="apps-empty" class="empty-state">এখনো কোনো third-party app install করা হয়নি।</div>
+      <div id="apps-list" class="apps-list" aria-live="polite"></div>
+
+      <div id="app-policy" class="policy-editor" hidden>
+        <div class="section-heading compact">
+          <div><p class="eyebrow">PER-APP POLICY</p><h3 id="policy-title">App policy</h3></div>
+          <button id="policy-close" class="ghost" type="button">Close</button>
+        </div>
+        <label class="master-switch"><input id="policy-enabled" type="checkbox"> এই app চালু থাকবে</label>
+        <p class="hint"><strong>Ask</strong> হলে call অপেক্ষা করবে; Allow/Block stored decision ভবিষ্যৎ call-এ স্বয়ংক্রিয় হবে। Ask বা Block করলে সংশ্লিষ্ট live subscription/resource revoke করা হয়।</p>
+        <div id="capability-grid" class="capability-grid"></div>
+        <div class="method-policy">
+          <h4>Method-level override</h4>
+          <div class="input-row">
+            <input id="method-name" placeholder="যেমন: http.get" autocomplete="off">
+            <select id="method-state"><option value="inherit">Inherit capability</option><option value="ask">Ask every undecided call</option><option value="allow">Always allow</option><option value="block">Always block</option></select>
+            <button id="method-save" type="button">Apply</button>
+          </div>
+          <pre id="method-overrides">No method decisions</pre>
+          <h4>Requested / used methods</h4>
+          <pre id="used-methods">No audited native API use</pre>
+        </div>
+      </div>
+
+      <div id="app-stage" class="app-stage" hidden>
+        <div class="section-heading compact"><div><p class="eyebrow">RUNNING APP</p><h3 id="stage-title">App</h3><p id="stage-status" class="stage-status">Starting…</p></div><button id="stage-stop" class="ghost" type="button">Stop</button></div>
+        <div id="app-frame-host" class="frame-host"></div>
+      </div>
+
+      <div class="audit-section">
+        <div class="section-heading compact">
+          <div><p class="eyebrow">USAGE AUDIT</p><h3>কোন app কোন Native API ব্যবহার করেছে</h3></div>
+          <div class="inline-buttons"><button id="audit-refresh" class="secondary" type="button">Refresh</button><button id="audit-clear" class="ghost danger" type="button">Clear log</button></div>
+        </div>
+        <div class="audit-table-wrap"><table><thead><tr><th>সময়</th><th>App</th><th>Native method</th><th>Outcome</th></tr></thead><tbody id="audit-rows"><tr><td colspan="4" class="muted">No audited calls</td></tr></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="panel log-panel">
+      <div class="log-heading"><div><p class="eyebrow">HOST EVENT LOG</p><h2>Live output</h2></div><button id="clear" class="ghost">Clear</button></div>
+      <pre id="log" aria-live="polite"></pre>
+    </section>
+  </main>
+  <footer>Trusted local content only · No production <code>server.url</code> · Native permissions remain user-controlled</footer>
+</body>
+</html>

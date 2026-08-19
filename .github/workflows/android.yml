@@ -1,0 +1,141 @@
+name: Android APK and AAB
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22.x'
+  JAVA_VERSION: '21'
+
+jobs:
+  build:
+    name: Validate and build Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          package-manager-cache: false
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Install locked JavaScript dependencies
+        run: npm ci
+
+      - name: Validate configuration, types, tests, and staging
+        run: npm run check
+
+      - name: Install Android release signing material when configured
+        id: android_signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          present=0
+          for value in "$ANDROID_KEYSTORE_BASE64" "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_ALIAS" "$ANDROID_KEY_PASSWORD"; do
+            if [[ -n "$value" ]]; then present=$((present + 1)); fi
+          done
+          if [[ "$present" -ne 0 && "$present" -ne 4 ]]; then
+            echo "Android signing secrets are incomplete; configure all four documented secrets." >&2
+            exit 1
+          fi
+
+          if [[ "$present" -eq 4 ]]; then
+            keystore="$RUNNER_TEMP/nativekit-release.jks"
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+            chmod 600 "$keystore"
+            echo "ANDROID_KEYSTORE_PATH=$keystore" >> "$GITHUB_ENV"
+            echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=$ANDROID_KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=$ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "Release APK/AAB signing is enabled."
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "No signing secrets supplied: release artifacts will be unsigned; the debug APK remains installable."
+          fi
+
+      - name: Stage trusted UI and synchronize native projects
+        run: npm run ci:android
+
+      - name: Build installable debug APK
+        working-directory: android
+        run: ./gradlew --no-daemon --max-workers=2 assembleDebug
+
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew --no-daemon --max-workers=2 assembleRelease
+
+      - name: Build release Android App Bundle
+        working-directory: android
+        run: ./gradlew --no-daemon --max-workers=2 bundleRelease
+
+      - name: Create checksums and build summary
+        id: artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p android-artifacts
+          find android/app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -exec cp {} android-artifacts/ \;
+          find android/app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -exec cp {} android-artifacts/ \;
+          find android/app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' -exec cp {} android-artifacts/ \;
+          test -n "$(find android-artifacts -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          test -n "$(find android-artifacts -maxdepth 1 -type f -name '*.aab' -print -quit)"
+          (cd android-artifacts && sha256sum -- *.apk *.aab > SHA256SUMS.txt)
+          {
+            echo '### Android artifacts'
+            echo
+            echo '- Release signing enabled: `${{ steps.android_signing.outputs.signed }}`'
+            echo '- Debug APK is installable with the Android debug key.'
+            if [[ '${{ steps.android_signing.outputs.signed }}' != 'true' ]]; then
+              echo '- Release APK/AAB are unsigned until the Android signing secrets are configured.'
+            fi
+            echo
+            echo '```text'
+            cat android-artifacts/SHA256SUMS.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APK and AAB artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: android-apk-aab-${{ github.sha }}
+          path: android-artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove temporary keystore
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/nativekit-release.jks"

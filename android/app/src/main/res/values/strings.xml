@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NativeKit Demo</string>
+    <string name="title_activity_main">NativeKit Demo</string>
+    <string name="package_name">dev.nativekit.shell</string>
+    <string name="custom_url_scheme">dev.nativekit.shell</string>
+</resources>
