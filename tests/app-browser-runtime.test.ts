@@ -92,7 +92,7 @@ describe('App Browser runtime bounds', () => {
     await expect(saveInstalledAppAndPolicy(app as any, { enabled: false } as any)).rejects.toBeTruthy();
 
     const stored = await new Promise<unknown>((resolve, reject) => {
-      const request = fakeIndexedDB.open('nativekit-app-browser-v1', 3);
+      const request = fakeIndexedDB.open('nativekit-app-browser-v1', 4);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const db = request.result;
@@ -122,7 +122,7 @@ describe('App Browser runtime bounds', () => {
     let ownershipWasVisible = false;
     await writeOwnedStorage(appId, 'preference', 'durable', async () => {
       ownershipWasVisible = await new Promise<boolean>((resolve, reject) => {
-        const request = fakeIndexedDB.open('nativekit-app-browser-v1', 3);
+        const request = fakeIndexedDB.open('nativekit-app-browser-v1', 4);
         request.onerror = () => reject(request.error);
         request.onsuccess = () => {
           const db = request.result;

@@ -199,6 +199,7 @@
       label.append(text, select);
       grid.append(label);
     }
+    renderNetworkPolicy(app);
     renderOverrides(app.policy.methodDecisions ?? {});
     const audit = await kit.appBrowser.audit.list({ appId: app.id, limit: 500 });
     const used = [...new Set(audit.map((item) => `${item.capability} · ${item.method}`))].sort();
@@ -209,6 +210,51 @@
   function closePolicy() {
     selectedAppId = null;
     byId('app-policy').hidden = true;
+  }
+
+  async function renderNetworkPolicy(app) {
+    const modeSelect = byId('network-mode');
+    modeSelect.value = app.policy.networkMode ?? 'sandboxed';
+    modeSelect.addEventListener('change', () => { byId('network-warning').hidden = modeSelect.value !== 'full'; });
+    byId('network-warning').hidden = modeSelect.value !== 'full';
+    byId('network-mode-save').onclick = async () => {
+      const next = modeSelect.value;
+      const previous = app.policy.networkMode ?? 'sandboxed';
+      if (next === previous) return;
+      if (next === 'full' && !confirm('FULL network mode দিলে এই app সব HTTPS/WSS host-এ যেতে পারবে। তার কাছে থাকা native data (camera/files/location) বাইরে পাঠানোর ঝুঁকিও থাকবে। চালিয়ে যাবেন?')) {
+        modeSelect.value = previous;
+        byId('network-warning').hidden = previous !== 'full';
+        return;
+      }
+      try {
+        const updated = await kit.appBrowser.setNetworkMode(app.id, next);
+        app.policy = updated;
+        byId('network-warning').hidden = next !== 'full';
+        report('appBrowser.setNetworkMode', { appId: app.id, networkMode: next, runningSessions: 'restarted-on-next-run' });
+        if (runningAppId === app.id) byId('stage-status').textContent = 'Network mode বদলেছে — নতুন mode আরোপে app-টি Stop করে আবার Run দিন।';
+      } catch (error) { modeSelect.value = previous; reportError('appBrowser.setNetworkMode', error, 'Network mode বদলানো যায়নি'); }
+    };
+    const autoplay = byId('media-autoplay');
+    autoplay.checked = app.policy.mediaAutoplay === true;
+    autoplay.onchange = async () => {
+      try {
+        const updated = await kit.appBrowser.setMediaAutoplay(app.id, autoplay.checked);
+        app.policy = updated;
+        report('appBrowser.setMediaAutoplay', { appId: app.id, mediaAutoplay: autoplay.checked });
+      } catch (error) { autoplay.checked = app.policy.mediaAutoplay === true; reportError('appBrowser.setMediaAutoplay', error, 'Media autoplay policy বদলানো যায়নি'); }
+    };
+    await renderNetworkStats(app.id);
+  }
+
+  async function renderNetworkStats(appId) {
+    try {
+      const stats = await kit.appBrowser.networkStats(appId);
+      const lines = [`মোট tracked request: ${stats.count ?? 0}`, `সেব update: ${stats.updatedAt || '—'}`];
+      const hosts = Object.entries(stats.hosts ?? {}).sort((a, b) => b[1] - a[1]).slice(0, 15);
+      if (hosts.length) { lines.push('', 'Top hosts:'); for (const [host, count] of hosts) lines.push(`  ${host} → ${count}`); }
+      else lines.push('', 'কোনো remote host এখনো ডাকা হয়নি।');
+      byId('network-stats').textContent = lines.join('\n');
+    } catch (error) { byId('network-stats').textContent = `Stats পাওয়া যায়নি: ${error.message}`; }
   }
 
   function renderOverrides(decisions) {

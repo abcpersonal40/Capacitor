@@ -8,26 +8,44 @@ final class IsolatedSchemeHandler: NSObject, WKURLSchemeHandler {
     private let host: String
     private let csp: String
 
-    init(root: URL, entry: String, host: String, allowedHosts: [String], allowDirectNetwork: Bool) {
+    init(root: URL, entry: String, host: String, allowedHosts: [String], allowDirectNetwork: Bool, networkMode: String) {
         self.root = root
         self.entry = entry
         self.host = host
-        let httpsSources = allowDirectNetwork ? allowedHosts.map { "https://\($0)" }.joined(separator: " ") : ""
-        let wssSources = allowDirectNetwork ? allowedHosts.map { "wss://\($0)" }.joined(separator: " ") : ""
-        self.csp = [
-            "default-src 'self' data: blob:",
-            "script-src 'self' 'unsafe-inline' data: blob:",
-            "style-src 'self' 'unsafe-inline' data: blob:",
-            "img-src 'self' data: blob: \(httpsSources)",
-            "font-src 'self' data: blob:",
-            "media-src 'self' data: blob: \(httpsSources)",
-            "connect-src 'self' \(httpsSources) \(wssSources)",
-            "worker-src 'self' blob:",
-            "frame-src 'self' data: blob:",
-            "object-src 'none'",
-            "base-uri 'none'",
-            "form-action 'none'"
-        ].joined(separator: "; ")
+        if networkMode == "full" {
+            // Owner-approved full internet: open HTTPS/WSS + form posts; everything else stays locked.
+            self.csp = [
+                "default-src 'self' data: blob:",
+                "script-src 'self' 'unsafe-inline' data: blob:",
+                "style-src 'self' 'unsafe-inline' data: blob:",
+                "img-src 'self' data: blob: https:",
+                "font-src 'self' data: blob: https:",
+                "media-src 'self' data: blob: https:",
+                "connect-src 'self' https: wss: data: blob:",
+                "worker-src 'self' blob: data:",
+                "frame-src 'self' data: blob: https:",
+                "object-src 'none'",
+                "base-uri 'none'",
+                "form-action 'self' https:"
+            ].joined(separator: "; ")
+        } else {
+            let httpsSources = (allowDirectNetwork && networkMode == "hosts") ? allowedHosts.map { "https://\($0)" }.joined(separator: " ") : ""
+            let wssSources = (allowDirectNetwork && networkMode == "hosts") ? allowedHosts.map { "wss://\($0)" }.joined(separator: " ") : ""
+            self.csp = [
+                "default-src 'self' data: blob:",
+                "script-src 'self' 'unsafe-inline' data: blob:",
+                "style-src 'self' 'unsafe-inline' data: blob:",
+                "img-src 'self' data: blob: \(httpsSources)",
+                "font-src 'self' data: blob:",
+                "media-src 'self' data: blob: \(httpsSources)",
+                "connect-src 'self' \(httpsSources) \(wssSources)",
+                "worker-src 'self' blob:",
+                "frame-src 'self' data: blob:",
+                "object-src 'none'",
+                "base-uri 'none'",
+                "form-action 'none'"
+            ].joined(separator: "; ")
+        }
     }
 
     func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
@@ -110,6 +128,8 @@ final class IsolatedBrowserViewController: UIViewController, WKNavigationDelegat
     private let bootstrap: String
     private let allowedHosts: [String]
     private let allowDirectNetwork: Bool
+    private let networkMode: String
+    private let mediaAutoplay: Bool
     private let hangTerminationDelay: TimeInterval
     private var webView: WKWebView!
     private var schemeHandler: IsolatedSchemeHandler!
@@ -120,7 +140,7 @@ final class IsolatedBrowserViewController: UIViewController, WKNavigationDelegat
     private var heartbeatGeneration = 0
     private var recoveryView: UIView?
 
-    init(sessionId: String, appId: String, token: String, title: String, packageRoot: URL, entry: String, bootstrap: String, allowedHosts: [String], allowDirectNetwork: Bool, hangTerminationDelayMs: Int) {
+    init(sessionId: String, appId: String, token: String, title: String, packageRoot: URL, entry: String, bootstrap: String, allowedHosts: [String], allowDirectNetwork: Bool, networkMode: String, mediaAutoplay: Bool, hangTerminationDelayMs: Int) {
         self.sessionId = sessionId
         self.appId = appId
         self.token = token
@@ -129,6 +149,8 @@ final class IsolatedBrowserViewController: UIViewController, WKNavigationDelegat
         self.bootstrap = bootstrap
         self.allowedHosts = allowedHosts
         self.allowDirectNetwork = allowDirectNetwork
+        self.networkMode = ["sandboxed", "hosts", "full"].contains(networkMode) ? networkMode : (allowDirectNetwork ? "hosts" : "sandboxed")
+        self.mediaAutoplay = mediaAutoplay
         self.hangTerminationDelay = TimeInterval(max(1_000, min(30_000, hangTerminationDelayMs))) / 1_000
         self.originHost = IsolatedAppStore.originHost(appId)
         super.init(nibName: nil, bundle: nil)
@@ -169,7 +191,8 @@ final class IsolatedBrowserViewController: UIViewController, WKNavigationDelegat
         }
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         configuration.allowsInlineMediaPlayback = false
-        schemeHandler = IsolatedSchemeHandler(root: packageRoot, entry: entry, host: originHost, allowedHosts: allowedHosts, allowDirectNetwork: allowDirectNetwork)
+        configuration.mediaTypesRequiringUserActionForPlayback = mediaAutoplay ? [] : .all
+        schemeHandler = IsolatedSchemeHandler(root: packageRoot, entry: entry, host: originHost, allowedHosts: allowedHosts, allowDirectNetwork: allowDirectNetwork, networkMode: networkMode)
         configuration.setURLSchemeHandler(schemeHandler, forURLScheme: "nativekit-app")
 
         let content = WKUserContentController()
@@ -307,7 +330,8 @@ final class IsolatedBrowserViewController: UIViewController, WKNavigationDelegat
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard navigationAction.targetFrame?.isMainFrame != false, let url = navigationAction.request.url else { decisionHandler(.allow); return }
         let local = url.scheme?.lowercased() == "nativekit-app" && url.host?.lowercased() == originHost.lowercased()
-        if local { decisionHandler(.allow) }
+        let remoteAllowed = networkMode == "full" && url.scheme?.lowercased() == "https"
+        if local || remoteAllowed { decisionHandler(.allow) }
         else {
             onStatus?("navigationBlocked", url.absoluteString)
             decisionHandler(.cancel)

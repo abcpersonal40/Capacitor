@@ -47,6 +47,11 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
@@ -73,6 +78,11 @@ public final class IsolatedBrowserActivity extends Activity {
     static final String EXTRA_ALLOWED_HOSTS = "allowedHosts";
     static final String EXTRA_ALLOW_DIRECT_NETWORK = "allowDirectNetwork";
     static final String EXTRA_HANG_DELAY = "hangTerminationDelayMs";
+    static final String EXTRA_NETWORK_MODE = "networkMode";
+    static final String EXTRA_MEDIA_AUTOPLAY = "mediaAutoplay";
+    private static final String MODE_SANDBOXED = "sandboxed";
+    private static final String MODE_HOSTS = "hosts";
+    private static final String MODE_FULL = "full";
 
     private static final int MAX_RESPONSE_TRANSFERS = 8;
     private static final String RPC_CHANNEL = "nativekit-app-browser-v1";
@@ -105,7 +115,11 @@ public final class IsolatedBrowserActivity extends Activity {
     private File packageRoot;
     private Set<String> allowedHosts = Collections.emptySet();
     private boolean allowDirectNetwork;
+    private String networkMode = MODE_SANDBOXED;
+    private boolean mediaAutoplay;
     private long hangTerminationDelayMs;
+    private int networkRequests;
+    private final Map<String, Integer> networkHosts = new HashMap<>();
     private Runnable pendingTermination;
     private AlertDialog permissionDialog;
     private Runnable permissionTimeout;
@@ -246,6 +260,14 @@ public final class IsolatedBrowserActivity extends Activity {
             origin = "https://" + originHost;
             startUrl = origin + "/" + entry;
             allowDirectNetwork = intent.getBooleanExtra(EXTRA_ALLOW_DIRECT_NETWORK, false);
+            {
+                String mode = intent.getStringExtra(EXTRA_NETWORK_MODE);
+                if (MODE_FULL.equals(mode) || MODE_HOSTS.equals(mode) || MODE_SANDBOXED.equals(mode)) networkMode = mode;
+                else networkMode = allowDirectNetwork ? MODE_HOSTS : MODE_SANDBOXED;
+                // Owner policy always wins over the bundle's global direct-network flag.
+                if (!allowDirectNetwork && !MODE_FULL.equals(networkMode)) networkMode = MODE_SANDBOXED;
+            }
+            mediaAutoplay = intent.getBooleanExtra(EXTRA_MEDIA_AUTOPLAY, false);
             hangTerminationDelayMs = Math.max(1_000L, Math.min(30_000L, intent.getLongExtra(EXTRA_HANG_DELAY, 4_000L)));
             String[] hosts = intent.getStringArrayExtra(EXTRA_ALLOWED_HOSTS);
             Set<String> parsedHosts = new HashSet<>();
@@ -325,12 +347,12 @@ public final class IsolatedBrowserActivity extends Activity {
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
         settings.setSupportMultipleWindows(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setMediaPlaybackRequiresUserGesture(true);
+        settings.setMediaPlaybackRequiresUserGesture(!mediaAutoplay);
         if (Build.VERSION.SDK_INT >= 26) settings.setSafeBrowsingEnabled(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false);
         WebView.setWebContentsDebuggingEnabled(false);
         webView.setWebChromeClient(new WebChromeClient());
-        webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> sendStatus("blocked", "web download blocked; use NativeKit fileTransfer"));
+        webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> startDownload(url));
         webView.setWebViewClient(new GuardedClient());
 
         Set<String> origins = Collections.singleton(origin);
@@ -423,7 +445,8 @@ public final class IsolatedBrowserActivity extends Activity {
             Uri url = request.getUrl();
             if (isLocal(url)) return serveLocal(url, request.isForMainFrame());
             String scheme = url.getScheme();
-            if ("https".equalsIgnoreCase(scheme) && allowDirectNetwork && hostAllowed(url)) return null;
+            if (MODE_FULL.equals(networkMode) && ("https".equalsIgnoreCase(scheme) || "wss".equalsIgnoreCase(scheme))) { trackNetwork(url); return null; }
+            if (MODE_HOSTS.equals(networkMode) && "https".equalsIgnoreCase(scheme) && hostAllowed(url)) { trackNetwork(url); return null; }
             if ("data".equalsIgnoreCase(scheme) || "blob".equalsIgnoreCase(scheme)) return null;
             return blockedResponse();
         }
@@ -510,7 +533,10 @@ public final class IsolatedBrowserActivity extends Activity {
     }
 
     private String contentSecurityPolicy() {
-        if (!allowDirectNetwork || allowedHosts.isEmpty()) {
+        if (MODE_FULL.equals(networkMode)) {
+            return "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' data: blob:; style-src 'self' 'unsafe-inline' data: blob:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; font-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; worker-src 'self' blob: data:; frame-src 'self' data: blob: https:; form-action 'self' https:; base-uri 'none'; object-src 'none'";
+        }
+        if (MODE_SANDBOXED.equals(networkMode) || allowedHosts.isEmpty()) {
             return "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' data: blob:; style-src 'self' 'unsafe-inline' data: blob:; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:; frame-src 'self' data: blob:; form-action 'none'; base-uri 'none'; object-src 'none'";
         }
         StringBuilder https = new StringBuilder();
@@ -520,6 +546,70 @@ public final class IsolatedBrowserActivity extends Activity {
             wss.append(" wss://").append(host);
         }
         return "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' data: blob:; style-src 'self' 'unsafe-inline' data: blob:; img-src 'self' data: blob:" + https + "; media-src 'self' data: blob:" + https + "; font-src 'self' data: blob:; connect-src 'self'" + https + wss + "; worker-src 'self' blob:; frame-src 'self' data: blob:; form-action 'none'; base-uri 'none'; object-src 'none'";
+    }
+
+    private void trackNetwork(Uri url) {
+        networkRequests += 1;
+        String host = url.getHost();
+        if (host != null) {
+            String key = host.toLowerCase(Locale.US);
+            Integer current = networkHosts.get(key);
+            networkHosts.put(key, (current == null ? 0 : current) + 1);
+        }
+        if (networkRequests % 10 == 0) flushNetworkStats();
+    }
+
+    private void flushNetworkStats() {
+        if (networkRequests == 0) return;
+        try {
+            java.util.List<Map.Entry<String, Integer>> entries = new ArrayList<>(networkHosts.entrySet());
+            entries.sort((a, b) -> b.getValue() - a.getValue());
+            JSONObject hosts = new JSONObject();
+            for (int i = 0; i < Math.min(10, entries.size()); i++) hosts.put(entries.get(i).getKey(), entries.get(i).getValue());
+            JSONObject payload = new JSONObject();
+            payload.put("add", networkRequests);
+            payload.put("hosts", hosts);
+            sendStatus("netStats", payload.toString());
+            networkRequests = 0;
+        } catch (Exception ignored) {}
+    }
+
+    private void startDownload(String rawUrl) {
+        Uri uri = Uri.parse(rawUrl);
+        boolean permitted = "https".equalsIgnoreCase(uri.getScheme())
+            && (MODE_FULL.equals(networkMode) || (MODE_HOSTS.equals(networkMode) && hostAllowed(uri)));
+        if (!permitted) { sendStatus("blocked", "web download blocked by network mode; use NativeKit fileTransfer"); return; }
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+            try {
+                connection = (HttpURLConnection) new URL(rawUrl).openConnection();
+                connection.setConnectTimeout(15_000);
+                connection.setReadTimeout(30_000);
+                connection.setInstanceFollowRedirects(true);
+                connection.connect();
+                if (connection.getResponseCode() / 100 != 2) throw new IOException("HTTP " + connection.getResponseCode());
+                String path = uri.getPath();
+                String name = (path == null || path.isEmpty()) ? "download.bin" : new File(path.endsWith("/") ? path.substring(0, path.length() - 1) : path).getName();
+                if (name.isEmpty() || name.length() > 120) name = "download.bin";
+                File dir = new File(getFilesDir(), "isolated-downloads/" + appId);
+                if (!dir.exists() && !dir.mkdirs()) throw new IOException("Download folder could not be created");
+                File target = new File(dir, name);
+                long total = 0;
+                try (InputStream in = connection.getInputStream(); FileOutputStream out = new FileOutputStream(target)) {
+                    byte[] buffer = new byte[16_384];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
+                        total += read;
+                        if (total > 200L * 1024 * 1024) throw new IOException("Download exceeds the 200 MiB cap");
+                    }
+                }
+                trackNetwork(uri);
+                sendStatus("downloadComplete", name + " (" + total + " bytes → app private files)");
+            } catch (Exception error) {
+                sendStatus("downloadFailed", error.getMessage() == null ? "download failed" : error.getMessage());
+            } finally { if (connection != null) connection.disconnect(); }
+        }, "nativekit-download").start();
     }
 
     private boolean isLocal(Uri url) {
@@ -630,6 +720,7 @@ public final class IsolatedBrowserActivity extends Activity {
 
     @Override protected void onDestroy() {
         if (permissionRequestId != null) completePermissionPrompt(permissionRequestId, "block_once");
+        flushNetworkStats();
         if (!isChangingConfigurations()) sendStatus("closed", "isolated activity closed");
         destroyWebView(false);
         if (bound) unbindService(connection);

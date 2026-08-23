@@ -121,6 +121,8 @@ public final class NativeKitIsolatedBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
                 bootstrap: try required(call, "bootstrap"),
                 allowedHosts: try validatedAllowedHosts(call.getArray("allowedHosts", String.self) ?? []),
                 allowDirectNetwork: call.getBool("allowDirectNetwork") ?? false,
+                networkMode: call.getString("networkMode") ?? "",
+                mediaAutoplay: call.getBool("mediaAutoplay") ?? false,
                 hangTerminationDelayMs: try requiredInt(call, "hangTerminationDelayMs")
             )
             controller.onRequest = { [weak self] request, origin in

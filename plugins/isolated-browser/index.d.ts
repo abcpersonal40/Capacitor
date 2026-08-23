@@ -36,6 +36,10 @@ export interface NativeKitIsolatedBrowserPlugin extends Plugin {
     bootstrap: string;
     allowedHosts: string[];
     allowDirectNetwork: boolean;
+    /** Per-app network mode: 'sandboxed' blocks all remote traffic, 'hosts' allows approved hosts, 'full' allows open HTTPS/WSS internet (owner-approved). */
+    networkMode?: 'sandboxed' | 'hosts' | 'full';
+    /** When true, media may autoplay without a user gesture in this isolated renderer. */
+    mediaAutoplay?: boolean;
     hangTerminationDelayMs: number;
   }): Promise<{ origin: string }>;
   openUrl(options: { sessionId: string; url: string; title?: string; allowedHosts: string[] }): Promise<{ sessionId: string }>;

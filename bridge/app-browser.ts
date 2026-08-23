@@ -39,6 +39,8 @@ type AppBrowserConfig = {
 };
 
 type PackageFile = { path: string; bytes: Uint8Array; type: string };
+export type AppBrowserNetworkMode = 'sandboxed' | 'hosts' | 'full';
+
 type AppManifest = {
   id: string;
   name: string;
@@ -47,6 +49,7 @@ type AppManifest = {
   description: string;
   requestedCapabilities: AppBrowserCapability[];
   allowedHosts: string[];
+  networkMode?: AppBrowserNetworkMode;
   webComponent?: { tag: string; module: string; attributes?: Record<string, string> };
 };
 type InstalledApp = {
@@ -67,6 +70,8 @@ type AppPolicy = {
   capabilityDecisions: Record<string, AppBrowserPermissionDecision>;
   methodDecisions: Record<string, AppBrowserPermissionDecision>;
   allowedHosts: string[];
+  networkMode: AppBrowserNetworkMode;
+  mediaAutoplay: boolean;
   updatedAt: string;
 };
 type AuditOutcome = 'success' | 'error' | 'denied' | 'rate_limited' | 'cancelled' | 'timeout';
@@ -119,7 +124,7 @@ type MethodContext = { app: InstalledApp; policy: AppPolicy };
 type MethodDefinition = { capability: AppBrowserCapability; run: (context: MethodContext, args: any[]) => Promise<any> | any };
 
 const DB_NAME = 'nativekit-app-browser-v1';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const RPC_CHANNEL = 'nativekit-app-browser-v1';
 const PATH_RE = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))(?!.*[\\\0]).+$/;
 const ID_RE = /^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)+$/;
@@ -135,6 +140,10 @@ export async function runWithDurablePrecondition<T>(persist: () => Promise<unkno
 
 function validPermissionDecision(value: unknown): value is AppBrowserPermissionDecision {
   return value === 'ask' || value === 'allow' || value === 'block';
+}
+
+export function normalizeAppBrowserNetworkMode(value: unknown): AppBrowserNetworkMode {
+  return value === 'hosts' || value === 'full' ? value : 'sandboxed';
 }
 
 function normalizePolicy(policy: Partial<AppPolicy> & Pick<AppPolicy, 'appId' | 'enabled' | 'allowedHosts' | 'updatedAt'>): AppPolicy {
@@ -157,6 +166,8 @@ function normalizePolicy(policy: Partial<AppPolicy> & Pick<AppPolicy, 'appId' | 
     capabilityDecisions,
     methodDecisions,
     allowedHosts: Array.isArray(policy.allowedHosts) ? policy.allowedHosts : [],
+    networkMode: normalizeAppBrowserNetworkMode(policy.networkMode),
+    mediaAutoplay: policy.mediaAutoplay === true,
     updatedAt: typeof policy.updatedAt === 'string' ? policy.updatedAt : new Date().toISOString(),
   };
 }
@@ -182,6 +193,7 @@ function openDatabase(): Promise<IDBDatabase> {
       const db = request.result;
       if (!db.objectStoreNames.contains('apps')) db.createObjectStore('apps', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('policies')) db.createObjectStore('policies', { keyPath: 'appId' });
+      if (!db.objectStoreNames.contains('netstats')) db.createObjectStore('netstats', { keyPath: 'appId' });
       if (!db.objectStoreNames.contains('audit')) {
         const store = db.createObjectStore('audit', { keyPath: 'id', autoIncrement: true });
         store.createIndex('appId', 'appId');
@@ -566,6 +578,7 @@ function parseManifest(files: PackageFile[], options: Record<string, any>, integ
     description: String(raw.description ?? options.description ?? '').slice(0, 500),
     requestedCapabilities: validateCapabilities(raw.requestedCapabilities ?? options.requestedCapabilities),
     allowedHosts: validateHosts(raw.allowedHosts ?? options.allowedHosts),
+    networkMode: normalizeAppBrowserNetworkMode(raw.networkMode),
     ...(webComponent ? { webComponent } : {}),
   };
 }
@@ -994,10 +1007,37 @@ export function isAllowedAppHost(input: string, allowed: string[]): boolean {
   });
 }
 
+type NetUsageRecord = { appId: string; count: number; hosts: Record<string, number>; updatedAt: string };
+const NET_HOST_CAP = 40;
+
+async function bumpNetworkUsage(appId: string, add: number, hosts: Record<string, number>): Promise<void> {
+  try {
+    const current = (await idbGet<NetUsageRecord>('netstats', appId)) ?? { appId, count: 0, hosts: {}, updatedAt: '' };
+    current.count += add;
+    for (const [host, count] of Object.entries(hosts)) current.hosts[host] = (current.hosts[host] ?? 0) + count;
+    const entries = Object.entries(current.hosts);
+    if (entries.length > NET_HOST_CAP) { entries.sort((a, b) => b[1] - a[1]); current.hosts = Object.fromEntries(entries.slice(0, NET_HOST_CAP)); }
+    current.updatedAt = new Date().toISOString();
+    await idbPut('netstats', current);
+  } catch { /* Usage tracking must never break a network call. */ }
+}
+
+function trackNetworkUsage(appId: string, host: string): void {
+  void bumpNetworkUsage(appId, 1, { [host || 'unknown']: 1 });
+}
+
+export async function absorbNativeNetStats(appId: string, add: number, hosts: Record<string, number> = {}): Promise<void> {
+  if (Number.isFinite(add) && add > 0) await bumpNetworkUsage(appId, Math.min(10_000, Math.floor(add)), hosts);
+}
+
 function checkAppUrl(context: MethodContext, input: unknown): string {
   const raw = String(input);
   const url = new URL(raw);
-  if (!isAllowedAppHost(raw, context.policy.allowedHosts)) throw new Error(`Host is not allowed for ${context.app.id}: ${url.host.toLowerCase()}`);
+  const networkMode = context.policy.networkMode ?? 'sandboxed';
+  // 'full' is an explicit owner-approved mode (policy card warns about data exfiltration);
+  // 'hosts' stays whitelisted; 'sandboxed' allows nothing remote.
+  if (networkMode !== 'full' && !isAllowedAppHost(raw, context.policy.allowedHosts)) throw new Error(`Host is not allowed for ${context.app.id}: ${url.host.toLowerCase()}`);
+  trackNetworkUsage(context.app.id, url.host);
   return url.toString();
 }
 
@@ -1505,9 +1545,16 @@ function buildDocument(app: InstalledApp, config: AppBrowserConfig, token: strin
   const approvedHttps = policy.allowedHosts.map((host) => `https://${host}`).join(' ');
   const approvedWss = policy.allowedHosts.map((host) => `wss://${host}`).join(' ');
   const directSources = [approvedHttps, approvedWss].filter(Boolean).join(' ');
-  const csp = config.allowDirectWebNetwork && directSources
-    ? `default-src 'none'; script-src 'unsafe-inline' data: blob:; style-src 'unsafe-inline' data: blob:; img-src data: blob: ${approvedHttps}; media-src data: blob: ${approvedHttps}; font-src data: blob:; connect-src ${directSources}; worker-src blob:; frame-src data: blob:; form-action 'none'; navigate-to 'none'; base-uri 'none'; object-src 'none'`
-    : "default-src 'none'; script-src 'unsafe-inline' data: blob:; style-src 'unsafe-inline' data: blob:; img-src data: blob:; media-src data: blob:; font-src data: blob:; connect-src 'none'; worker-src blob:; frame-src data: blob:; form-action 'none'; navigate-to 'none'; base-uri 'none'; object-src 'none'";
+  const networkMode = policy.networkMode ?? 'sandboxed';
+  let csp: string;
+  if (networkMode === 'full') {
+    // Owner-approved full internet: open HTTPS/WSS + form posts; everything else stays locked down.
+    csp = "default-src 'none'; script-src 'unsafe-inline' data: blob:; style-src 'unsafe-inline' data: blob:; img-src data: blob: https:; media-src data: blob: https:; font-src data: blob: https:; connect-src https: wss: data: blob:; worker-src blob: data:; frame-src data: blob: https:; form-action https:; navigate-to 'self'; base-uri 'none'; object-src 'none'";
+  } else if (config.allowDirectWebNetwork && directSources) {
+    csp = `default-src 'none'; script-src 'unsafe-inline' data: blob:; style-src 'unsafe-inline' data: blob:; img-src data: blob: ${approvedHttps}; media-src data: blob: ${approvedHttps}; font-src data: blob:; connect-src ${directSources}; worker-src blob:; frame-src data: blob:; form-action 'none'; navigate-to 'self'; base-uri 'none'; object-src 'none'`;
+  } else {
+    csp = "default-src 'none'; script-src 'unsafe-inline' data: blob:; style-src 'unsafe-inline' data: blob:; img-src data: blob:; media-src data: blob:; font-src data: blob:; connect-src 'none'; worker-src blob:; frame-src data: blob:; form-action 'none'; navigate-to 'self'; base-uri 'none'; object-src 'none'";
+  }
   const cspNode = documentValue.createElement('meta'); cspNode.httpEquiv = 'Content-Security-Policy'; cspNode.content = csp; documentValue.head.prepend(cspNode);
   const charset = documentValue.createElement('meta'); charset.setAttribute('charset', 'utf-8'); documentValue.head.prepend(charset);
 
@@ -1805,6 +1852,9 @@ export function createAppBrowser(nativeKit: any, config: AppBrowserConfig): any 
             const session = sessions.get(sessionId);
             if (!session || event.appId !== session.app.id) return;
             const state = String(event.state ?? 'unknown');
+            if (state === 'netStats' && typeof event.reason === 'string') {
+              try { const stats = JSON.parse(event.reason) as any; void absorbNativeNetStats(session.app.id, Number(stats?.add), (stats?.hosts && typeof stats.hosts === 'object') ? stats.hosts : {}); } catch { /* Malformed stats are ignored. */ }
+            }
             window.dispatchEvent(new CustomEvent('nativekitappbrowserstatus', { detail: { sessionId, appId: session.app.id, renderer: 'isolated', state, reason: event.reason } }));
             if (state === 'rendererGone') {
               cancelPendingPermissions((request) => request.sessionId === sessionId, 'The requesting renderer failed');
@@ -1905,6 +1955,8 @@ export function createAppBrowser(nativeKit: any, config: AppBrowserConfig): any 
       capabilityDecisions,
       methodDecisions: {},
       allowedHosts: app.manifest.allowedHosts,
+      networkMode: normalizeAppBrowserNetworkMode(app.manifest.networkMode),
+      mediaAutoplay: false,
       updatedAt: new Date().toISOString(),
     });
   }
@@ -2470,7 +2522,9 @@ export function createAppBrowser(nativeKit: any, config: AppBrowserConfig): any 
               entry: app.manifest.entry,
               bootstrap: bootstrapSource(token, app),
               allowedHosts: policy.allowedHosts,
-              allowDirectNetwork: config.allowDirectWebNetwork,
+              allowDirectNetwork: config.allowDirectWebNetwork && (policy.networkMode ?? 'sandboxed') !== 'sandboxed',
+              networkMode: policy.networkMode ?? 'sandboxed',
+              mediaAutoplay: policy.mediaAutoplay === true,
               hangTerminationDelayMs: config.isolated.hangTerminationDelayMs,
             });
             if (session.nativeOrigin && session.nativeOrigin !== opened.origin) throw new Error('Isolated renderer origin changed during launch');
@@ -2525,6 +2579,31 @@ export function createAppBrowser(nativeKit: any, config: AppBrowserConfig): any 
     setMethodDecision,
     setMethodPermission: async (appId: string, method: string, enabled: boolean | null) => setMethodDecision(appId, method, enabled == null ? 'inherit' : enabled ? 'allow' : 'block'),
     setAllowedHosts: async (appId: string, hosts: string[]) => { const app = await getApp(appId); const policy = await getPolicy(app); const requested = new Set(app.manifest.allowedHosts); const previous = policy.allowedHosts.join('\n'); policy.allowedHosts = validateHosts(hosts).filter((host) => requested.has(host)); policy.updatedAt = new Date().toISOString(); await idbPut('policies', policy); if (policy.allowedHosts.join('\n') !== previous) await stopAppSessions(appId); return policy; },
+    setNetworkMode: async (appId: string, mode: string) => {
+      const app = await getApp(appId); const policy = await getPolicy(app);
+      const next = normalizeAppBrowserNetworkMode(mode);
+      const previous = policy.networkMode ?? 'sandboxed';
+      if (next === previous) return policy;
+      policy.networkMode = next;
+      policy.updatedAt = new Date().toISOString();
+      const normalized = normalizePolicy(policy);
+      await idbPut('policies', normalized);
+      // Running sessions keep their launch-time network mode; stop them so the new mode applies.
+      await stopAppSessions(appId);
+      return normalized;
+    },
+    setMediaAutoplay: async (appId: string, enabled: boolean) => {
+      const app = await getApp(appId); const policy = await getPolicy(app);
+      policy.mediaAutoplay = !!enabled;
+      policy.updatedAt = new Date().toISOString();
+      const normalized = normalizePolicy(policy);
+      await idbPut('policies', normalized);
+      return normalized;
+    },
+    networkStats: async (appId?: string) => {
+      if (appId) return (await idbGet<NetUsageRecord>('netstats', appId)) ?? { appId, count: 0, hosts: {}, updatedAt: '' };
+      return idbGetAll<NetUsageRecord>('netstats');
+    },
     audit: Object.freeze({
       list: async (filter: { appId?: string; capability?: string; outcome?: AuditOutcome; limit?: number } = {}) => (await idbGetAll<AuditRecord>('audit')).filter((row) => (!filter.appId || row.appId === filter.appId) && (!filter.capability || row.capability === filter.capability) && (!filter.outcome || row.outcome === filter.outcome)).sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp))).slice(0, Math.min(1000, Math.max(1, filter.limit ?? 100))),
       summary: async (appId?: string) => { const rows = (await idbGetAll<AuditRecord>('audit')).filter((row) => !appId || row.appId === appId); const summary: Record<string, any> = {}; for (const row of rows) { const key = `${row.appId}|${row.method}`; const item = summary[key] ??= { appId: row.appId, appName: row.appName, method: row.method, capability: row.capability, calls: 0, success: 0, denied: 0, errors: 0, lastUsedAt: row.timestamp }; item.calls += 1; if (row.outcome === 'success') item.success += 1; else if (row.outcome === 'denied' || row.outcome === 'rate_limited') item.denied += 1; else item.errors += 1; if (row.timestamp > item.lastUsedAt) item.lastUsedAt = row.timestamp; } return Object.values(summary).sort((a: any, b: any) => b.lastUsedAt.localeCompare(a.lastUsedAt)); },

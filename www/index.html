@@ -158,6 +158,22 @@
         <label class="master-switch"><input id="policy-enabled" type="checkbox"> এই app চালু থাকবে</label>
         <p class="hint"><strong>Ask</strong> হলে call অপেক্ষা করবে; Allow/Block stored decision ভবিষ্যৎ call-এ স্বয়ংক্রিয় হবে। Ask বা Block করলে সংশ্লিষ্ট live subscription/resource revoke করা হয়।</p>
         <div id="capability-grid" class="capability-grid"></div>
+        <div class="network-policy">
+          <h4>Network mode</h4>
+          <p class="hint"><strong>sandboxed</strong> = আগেভাগে সব remote request বন্ধ · <strong>hosts</strong> = শুধু approved host · <strong>full</strong> = পুরো ইন্টারনেট খোলা (HTTPS/WSS + ফর্ম)। Full mode-এ app-টা তার পাওয়া native data বাইরে পাঠাতে পারে — শুধু বিশ্বস্ত app-কে দিন। প্রতিটা request-এর হিসাব নিচে usage-এ দেখা যায়।</p>
+          <div class="input-row">
+            <select id="network-mode" aria-label="Network mode">
+              <option value="sandboxed">sandboxed · network বন্ধ</option>
+              <option value="hosts">hosts · শুধু approved host</option>
+              <option value="full">full · পুরো ইন্টারনেট</option>
+            </select>
+            <button id="network-mode-save" type="button">Apply</button>
+          </div>
+          <p id="network-warning" class="hint" hidden>⚠️ FULL mode চালু: এই app সব HTTPS/WSS host-এ যেতে পারবে। Camera/files/location capability দিলে সেই data-ও বাইরে যেতে পারে।</p>
+          <label class="master-switch"><input id="media-autoplay" type="checkbox"> Media অটো-প্লে (ভিডিও/অডিও gesture ছাড়াই চালু হবে)</label>
+          <h4>Network usage (tracking)</h4>
+          <pre id="network-stats">No network activity</pre>
+        </div>
         <div class="method-policy">
           <h4>Method-level override</h4>
           <div class="input-row">
