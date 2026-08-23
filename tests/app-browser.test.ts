@@ -35,7 +35,10 @@ describe('App Browser package boundary', () => {
   it('normalizes per-app network modes fail-closed', () => {
     expect(normalizeAppBrowserNetworkMode('full')).toBe('full');
     expect(normalizeAppBrowserNetworkMode('hosts')).toBe('hosts');
-    for (const value of ['sandboxed', 'open', '', undefined, null, 3, {}, ['full']]) expect(normalizeAppBrowserNetworkMode(value)).toBe('sandboxed');
+    // OWNER RULE: absent/empty → 'full' (default always-allow); corrupted garbage fails closed.
+    expect(normalizeAppBrowserNetworkMode('sandboxed')).toBe('sandboxed');
+    for (const value of ['', undefined, null]) expect(normalizeAppBrowserNetworkMode(value)).toBe('full');
+    for (const value of ['open', 3, {}, ['full']]) expect(normalizeAppBrowserNetworkMode(value)).toBe('sandboxed');
   });
 
   it('matches only explicit HTTP(S) host policy, including safe wildcards and ports', () => {
@@ -235,7 +238,7 @@ describe('App Browser broker security invariants', () => {
   it('limits direct-web CSP to the app policy and restarts sessions after host-policy changes', () => {
     expect(source).toContain('policy.allowedHosts.map((host) => `https://${host}`)');
     // Open internet exists ONLY behind the owner-approved 'full' network mode.
-    expect(source).toContain("const networkMode = policy.networkMode ?? 'sandboxed';");
+    expect(source).toContain("const networkMode = policy.networkMode ?? 'full';");
     expect(source).toContain("if (networkMode === 'full') {");
     expect(source).toContain("connect-src 'none'");
     expect(source).toContain("if (policy.allowedHosts.join('\\n') !== previous)");

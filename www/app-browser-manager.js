@@ -214,12 +214,12 @@
 
   async function renderNetworkPolicy(app) {
     const modeSelect = byId('network-mode');
-    modeSelect.value = app.policy.networkMode ?? 'sandboxed';
+    modeSelect.value = app.policy.networkMode ?? 'full';
     modeSelect.addEventListener('change', () => { byId('network-warning').hidden = modeSelect.value !== 'full'; });
     byId('network-warning').hidden = modeSelect.value !== 'full';
     byId('network-mode-save').onclick = async () => {
       const next = modeSelect.value;
-      const previous = app.policy.networkMode ?? 'sandboxed';
+      const previous = app.policy.networkMode ?? 'full';
       if (next === previous) return;
       if (next === 'full' && !confirm('FULL network mode দিলে এই app সব HTTPS/WSS host-এ যেতে পারবে। তার কাছে থাকা native data (camera/files/location) বাইরে পাঠানোর ঝুঁকিও থাকবে। চালিয়ে যাবেন?')) {
         modeSelect.value = previous;

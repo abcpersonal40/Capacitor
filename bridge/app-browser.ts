@@ -143,7 +143,11 @@ function validPermissionDecision(value: unknown): value is AppBrowserPermissionD
 }
 
 export function normalizeAppBrowserNetworkMode(value: unknown): AppBrowserNetworkMode {
-  return value === 'hosts' || value === 'full' ? value : 'sandboxed';
+  if (value === 'hosts' || value === 'sandboxed' || value === 'full') return value;
+  // OWNER RULE: apps default to the open internet ('full'). Absent/empty means
+  // "no opinion" → full. Corrupted values still fail closed to 'sandboxed'.
+  if (value === undefined || value === null || value === '') return 'full';
+  return 'sandboxed';
 }
 
 function normalizePolicy(policy: Partial<AppPolicy> & Pick<AppPolicy, 'appId' | 'enabled' | 'allowedHosts' | 'updatedAt'>): AppPolicy {
@@ -1033,7 +1037,7 @@ export async function absorbNativeNetStats(appId: string, add: number, hosts: Re
 function checkAppUrl(context: MethodContext, input: unknown): string {
   const raw = String(input);
   const url = new URL(raw);
-  const networkMode = context.policy.networkMode ?? 'sandboxed';
+  const networkMode = context.policy.networkMode ?? 'full';
   // 'full' is an explicit owner-approved mode (policy card warns about data exfiltration);
   // 'hosts' stays whitelisted; 'sandboxed' allows nothing remote.
   if (networkMode !== 'full' && !isAllowedAppHost(raw, context.policy.allowedHosts)) throw new Error(`Host is not allowed for ${context.app.id}: ${url.host.toLowerCase()}`);
@@ -1545,7 +1549,7 @@ function buildDocument(app: InstalledApp, config: AppBrowserConfig, token: strin
   const approvedHttps = policy.allowedHosts.map((host) => `https://${host}`).join(' ');
   const approvedWss = policy.allowedHosts.map((host) => `wss://${host}`).join(' ');
   const directSources = [approvedHttps, approvedWss].filter(Boolean).join(' ');
-  const networkMode = policy.networkMode ?? 'sandboxed';
+  const networkMode = policy.networkMode ?? 'full';
   let csp: string;
   if (networkMode === 'full') {
     // Owner-approved full internet: open HTTPS/WSS + form posts; everything else stays locked down.
@@ -2522,8 +2526,8 @@ export function createAppBrowser(nativeKit: any, config: AppBrowserConfig): any 
               entry: app.manifest.entry,
               bootstrap: bootstrapSource(token, app),
               allowedHosts: policy.allowedHosts,
-              allowDirectNetwork: config.allowDirectWebNetwork && (policy.networkMode ?? 'sandboxed') !== 'sandboxed',
-              networkMode: policy.networkMode ?? 'sandboxed',
+              allowDirectNetwork: config.allowDirectWebNetwork && (policy.networkMode ?? 'full') !== 'sandboxed',
+              networkMode: policy.networkMode ?? 'full',
               mediaAutoplay: policy.mediaAutoplay === true,
               hangTerminationDelayMs: config.isolated.hangTerminationDelayMs,
             });
@@ -2582,7 +2586,7 @@ export function createAppBrowser(nativeKit: any, config: AppBrowserConfig): any 
     setNetworkMode: async (appId: string, mode: string) => {
       const app = await getApp(appId); const policy = await getPolicy(app);
       const next = normalizeAppBrowserNetworkMode(mode);
-      const previous = policy.networkMode ?? 'sandboxed';
+      const previous = policy.networkMode ?? 'full';
       if (next === previous) return policy;
       policy.networkMode = next;
       policy.updatedAt = new Date().toISOString();
