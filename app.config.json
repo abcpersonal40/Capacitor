@@ -1,11 +1,11 @@
 {
   "$schema": "./app.config.schema.json",
   "app": {
-    "name": "NativeKit Demo",
+    "name": "NativeKit TestLab",
     "id": "dev.nativekit.shell",
-    "versionName": "1.0.0",
-    "versionCode": 1,
-    "buildNumber": "1",
+    "versionName": "1.1.0-testlab",
+    "versionCode": 2,
+    "buildNumber": "2",
     "description": "A reusable, locally bundled Capacitor application shell",
     "defaultLanguage": "bn",
     "urlScheme": "nativekit"
@@ -39,11 +39,11 @@
   "features": {
     "camera": true,
     "location": true,
-    "backgroundLocation": false,
+    "backgroundLocation": true,
     "haptics": true,
     "localNotifications": true,
     "pushNotificationsReady": true,
-    "advancedAlarms": false,
+    "advancedAlarms": true,
     "backgroundRunner": true,
     "sqlite": true,
     "secureStorage": true,
@@ -68,8 +68,8 @@
     "targetSdk": 36,
     "compileSdk": 36,
     "exactAlarmPermissionMode": "schedule",
-    "fullScreenAlarm": false,
-    "backgroundLocationForegroundService": false,
+    "fullScreenAlarm": true,
+    "backgroundLocationForegroundService": true,
     "alarmSoundName": "default",
     "notificationChannelId": "nativekit_general",
     "alarmChannelId": "nativekit_alarms"
@@ -80,7 +80,7 @@
     "alarmKitOnIOS26": false,
     "backgroundFetch": true,
     "backgroundProcessing": true,
-    "backgroundLocation": false,
+    "backgroundLocation": true,
     "pushCapabilityConfigured": false
   },
   "appBrowser": {

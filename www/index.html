@@ -72,6 +72,28 @@
       </article>
     </section>
 
+    <section class="panel" id="full-api-lab">
+      <div>
+        <p class="eyebrow">FULL API LAB</p>
+        <h2>সব native plugin — এক-ট্যাপ টেস্ট</h2>
+        <p style="color:var(--muted);font-size:.85rem;margin-top:8px">প্রতিটি বাটন সরাসরি native API ডাকে; ফলাফল নিচের Host Event Log-এ আসে। Permission লাগলে OS prompt আসবে, grant করলেই সেই call নিজে complete হয় — আবার চাপতে হবে না।</p>
+      </div>
+      <div class="grid" style="margin-top:16px" aria-label="Full native API tests">
+        <article class="card"><span class="icon">▣</span><h3>Exact alarm</h3><p>১৫ সেকুন্ড পর native alarm; প্রথমবার exact-access settings চাইলে অনুমতি দিন।</p><button data-action="alarmset">Schedule +15s</button></article>
+        <article class="card"><span class="icon">⛁</span><h3>SQLite</h3><p>Native DB খুলে table create → insert → query চালান।</p><button data-action="sqlite">Run DB test</button></article>
+        <article class="card"><span class="icon">⛨</span><h3>Secure storage</h3><p>Keystore/Keychain-backed store-এ token লিখে আবার পড়ুন।</p><button data-action="secure">Write + read</button></article>
+        <article class="card"><span class="icon">▤</span><h3>Filesystem</h3><p>Documents-এ ফাইল লিখে stat দিয়ে verify করুন।</p><button data-action="fs">Write + read</button></article>
+        <article class="card"><span class="icon">⇪</span><h3>Download</h3><p>Native file transfer, progress log-সহ ছোট ফাইল ডাউনলোড।</p><button data-action="download">Download file</button></article>
+        <article class="card"><span class="icon">≣</span><h3>SSE stream</h3><p>Native chunked stream পড়ুন—browser CORS ছাড়া।</p><button data-action="stream">Start stream</button></article>
+        <article class="card"><span class="icon">◈</span><h3>Share</h3><p>Native share sheet খুলুন।</p><button data-action="share">Share text</button></article>
+        <article class="card"><span class="icon">☷</span><h3>Network status</h3><p>সংযোগের ধরন ও state পড়ুন।</p><button data-action="network">Get status</button></article>
+        <article class="card"><span class="icon">◍</span><h3>Push status</h3><p>Permission state দেখুন (Firebase এখনো ইচ্ছাকৃতভাবে নেই)।</p><button data-action="pushstatus">Check push</button></article>
+        <article class="card"><span class="icon">▧</span><h3>Background GPS</h3><p>Foreground-service ট্র্যাকিং; settings-এ 'Allow all the time' দিন।</p><div class="input-row"><button data-action="bgstart">Start</button><button data-action="bgstop" class="secondary">Stop</button></div></article>
+        <article class="card"><span class="icon">⌘</span><h3>In-app browser</h3><p>Capgo webview browser খুলুন (example.com)।</p><button data-action="browser">Open</button></article>
+        <article class="card"><span class="icon">⌨</span><h3>Keyboard test</h3><p>ট্যাপ করলে keyboard আসবে — blink/layout যাচাই করুন।</p><input id="kb-test" placeholder="এখানে লিখে দেখুন…" autocomplete="off"></article>
+      </div>
+    </section>
+
     <section class="panel network-panel">
       <div>
         <p class="eyebrow">NATIVE NETWORK</p>
