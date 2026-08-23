@@ -13,6 +13,9 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Keyboard/status-bar inset padding reveals the decor behind the WebView;
+             keep it the app's dark background so edge-to-edge looks native. -->
+        <item name="android:windowBackground">#07111f</item>
     </style>
 
 

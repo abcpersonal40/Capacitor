@@ -49,6 +49,8 @@ const config: CapacitorConfig = {
       // Keep Capacitor 8.3+ native inset handling: correct --safe-area-inset-*
       // CSS variables plus IME-aware padding on Android (API 35+ edge-to-edge).
       insetsHandling: 'css',
+      // App UI is always dark: force light status/nav bar icons even in day mode.
+      style: 'DARK',
     },
     BackgroundRunner: {
       label: backgroundRunner.label,
