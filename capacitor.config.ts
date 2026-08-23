@@ -46,9 +46,11 @@ const config: CapacitorConfig = {
       autoBackdropColor: 'dom',
     },
     SystemBars: {
-      // Keep Capacitor 8.3+ native inset handling: correct --safe-area-inset-*
-      // CSS variables plus IME-aware padding on Android (API 35+ edge-to-edge).
-      insetsHandling: 'css',
+      // Fully deterministic mode: the plugin installs NO inset listener, pads NOTHING
+      // and injects nothing. MainActivity reads insets itself and publishes them as
+      // --safe-area-inset-* CSS variables; the IME is left to the OS/Chrome, so the
+      // viewport can never be shrunk twice (that double-shrink left keyboard-sized gaps).
+      insetsHandling: 'disable',
       // App UI is always dark: force light status/nav bar icons even in day mode.
       style: 'DARK',
     },

@@ -2,24 +2,43 @@
 <resources>
 
     <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
+        <!-- System bars + decor must match the app's dark UI everywhere:
+             no white/splash strip behind the status bar, ever. -->
+        <item name="android:windowBackground">#07111f</item>
+        <item name="android:statusBarColor">#07111f</item>
+        <item name="android:navigationBarColor">#07111f</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
     </style>
 
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
-        <!-- Keyboard/status-bar inset padding reveals the decor behind the WebView;
-             keep it the app's dark background so edge-to-edge looks native. -->
         <item name="android:windowBackground">#07111f</item>
+        <item name="android:statusBarColor">#07111f</item>
+        <item name="android:navigationBarColor">#07111f</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
     </style>
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <!-- After the splash screen fades, THIS is the decor color left behind
+             the WebView (status/nav bar areas). Must be the app's dark color. -->
+        <item name="android:windowBackground">#07111f</item>
+        <item name="android:statusBarColor">#07111f</item>
+        <item name="android:navigationBarColor">#07111f</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
     </style>
 </resources>

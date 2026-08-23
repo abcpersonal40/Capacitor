@@ -1,5 +1,67 @@
 package dev.nativekit.shell;
 
+import android.os.Bundle;
+import android.view.View;
+import android.webkit.WebView;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.WebViewListener;
+import java.util.Locale;
 
-public class MainActivity extends BridgeActivity {}
+public class MainActivity extends BridgeActivity {
+
+    private int lastInsetTop = 0;
+    private int lastInsetRight = 0;
+    private int lastInsetBottom = 0;
+    private int lastInsetLeft = 0;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // Deterministic safe-area bridge: we ONLY read insets here and publish them as
+        // --safe-area-inset-* CSS variables. Nothing pads or resizes for the IME
+        // (SystemBars insetsHandling=disable), so the keyboard can never shrink the
+        // viewport twice — that double-shrink used to leave a keyboard-sized gap.
+        View decor = getWindow().getDecorView();
+        ViewCompat.setOnApplyWindowInsetsListener(decor, (view, insets) -> {
+            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            lastInsetTop = bars.top;
+            lastInsetRight = bars.right;
+            lastInsetBottom = bars.bottom;
+            lastInsetLeft = bars.left;
+            injectSafeAreaCss();
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(decor);
+
+        getBridge().addWebViewListener(new WebViewListener() {
+            @Override
+            public void onPageLoaded(WebView webView) {
+                injectSafeAreaCss();
+            }
+        });
+    }
+
+    private void injectSafeAreaCss() {
+        if (getBridge() == null || getBridge().getWebView() == null) return;
+        float density = getResources().getDisplayMetrics().density;
+        int top = Math.round(lastInsetTop / density);
+        int right = Math.round(lastInsetRight / density);
+        int bottom = Math.round(lastInsetBottom / density);
+        int left = Math.round(lastInsetLeft / density);
+        String script = String.format(Locale.US,
+                "(function(){try{var s=document.documentElement.style;"
+                        + "s.setProperty('--safe-area-inset-top','%dpx');"
+                        + "s.setProperty('--safe-area-inset-right','%dpx');"
+                        + "s.setProperty('--safe-area-inset-bottom','%dpx');"
+                        + "s.setProperty('--safe-area-inset-left','%dpx');}catch(e){}})();",
+                top, right, bottom, left);
+        getBridge().executeOnMainThread(() -> {
+            WebView webView = getBridge().getWebView();
+            if (webView != null) webView.evaluateJavascript(script, null);
+        });
+    }
+}
