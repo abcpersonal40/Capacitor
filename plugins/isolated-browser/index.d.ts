@@ -40,6 +40,8 @@ export interface NativeKitIsolatedBrowserPlugin extends Plugin {
     networkMode?: 'sandboxed' | 'hosts' | 'full';
     /** When true, media may autoplay without a user gesture in this isolated renderer. */
     mediaAutoplay?: boolean;
+    /** Status/navigation bar icon contrast for the isolated window. Default 'dark' = dark bars with light icons. */
+    colorScheme?: 'dark' | 'light';
     hangTerminationDelayMs: number;
   }): Promise<{ origin: string }>;
   openUrl(options: { sessionId: string; url: string; title?: string; allowedHosts: string[] }): Promise<{ sessionId: string }>;

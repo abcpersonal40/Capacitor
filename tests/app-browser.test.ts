@@ -7,6 +7,7 @@ import {
   gateAppBrowserHostSurface,
   inspectZipLimits,
   isAllowedAppHost,
+  normalizeAppBrowserColorScheme,
   normalizeAppBrowserNetworkMode,
   normalizePackagePath,
   safeRelativeDataPath,
@@ -39,6 +40,12 @@ describe('App Browser package boundary', () => {
     expect(normalizeAppBrowserNetworkMode('sandboxed')).toBe('sandboxed');
     for (const value of ['', undefined, null]) expect(normalizeAppBrowserNetworkMode(value)).toBe('full');
     for (const value of ['open', 3, {}, ['full']]) expect(normalizeAppBrowserNetworkMode(value)).toBe('sandboxed');
+  });
+
+  it('defaults colorScheme to dark, honors light only when explicit', () => {
+    expect(normalizeAppBrowserColorScheme('light')).toBe('light');
+    expect(normalizeAppBrowserColorScheme('dark')).toBe('dark');
+    for (const value of ['', 'auto', undefined, null, 1, {}]) expect(normalizeAppBrowserColorScheme(value)).toBe('dark');
   });
 
   it('matches only explicit HTTP(S) host policy, including safe wildcards and ports', () => {

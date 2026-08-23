@@ -166,6 +166,7 @@ public final class NativeKitIsolatedBrowserPlugin extends Plugin implements Isol
             intent.putExtra(IsolatedBrowserActivity.EXTRA_ALLOWED_HOSTS, stringArray(call.getArray("allowedHosts")));
             intent.putExtra(IsolatedBrowserActivity.EXTRA_ALLOW_DIRECT_NETWORK, Boolean.TRUE.equals(call.getBoolean("allowDirectNetwork", false)));
             intent.putExtra(IsolatedBrowserActivity.EXTRA_NETWORK_MODE, call.getString("networkMode", ""));
+            intent.putExtra(IsolatedBrowserActivity.EXTRA_COLOR_SCHEME, call.getString("colorScheme", "dark"));
             intent.putExtra(IsolatedBrowserActivity.EXTRA_MEDIA_AUTOPLAY, Boolean.TRUE.equals(call.getBoolean("mediaAutoplay", false)));
             intent.putExtra(IsolatedBrowserActivity.EXTRA_HANG_DELAY, requiredLong(call, "hangTerminationDelayMs"));
             getContext().startActivity(intent);

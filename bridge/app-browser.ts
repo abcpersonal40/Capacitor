@@ -50,6 +50,7 @@ type AppManifest = {
   requestedCapabilities: AppBrowserCapability[];
   allowedHosts: string[];
   networkMode?: AppBrowserNetworkMode;
+  colorScheme?: 'dark' | 'light';
   webComponent?: { tag: string; module: string; attributes?: Record<string, string> };
 };
 type InstalledApp = {
@@ -72,6 +73,7 @@ type AppPolicy = {
   allowedHosts: string[];
   networkMode: AppBrowserNetworkMode;
   mediaAutoplay: boolean;
+  colorScheme: 'dark' | 'light';
   updatedAt: string;
 };
 type AuditOutcome = 'success' | 'error' | 'denied' | 'rate_limited' | 'cancelled' | 'timeout';
@@ -142,6 +144,10 @@ function validPermissionDecision(value: unknown): value is AppBrowserPermissionD
   return value === 'ask' || value === 'allow' || value === 'block';
 }
 
+export function normalizeAppBrowserColorScheme(value: unknown): 'dark' | 'light' {
+  return value === 'light' ? 'light' : 'dark';
+}
+
 export function normalizeAppBrowserNetworkMode(value: unknown): AppBrowserNetworkMode {
   if (value === 'hosts' || value === 'sandboxed' || value === 'full') return value;
   // OWNER RULE: apps default to the open internet ('full'). Absent/empty means
@@ -172,6 +178,7 @@ function normalizePolicy(policy: Partial<AppPolicy> & Pick<AppPolicy, 'appId' | 
     allowedHosts: Array.isArray(policy.allowedHosts) ? policy.allowedHosts : [],
     networkMode: normalizeAppBrowserNetworkMode(policy.networkMode),
     mediaAutoplay: policy.mediaAutoplay === true,
+    colorScheme: normalizeAppBrowserColorScheme(policy.colorScheme),
     updatedAt: typeof policy.updatedAt === 'string' ? policy.updatedAt : new Date().toISOString(),
   };
 }
@@ -583,6 +590,7 @@ function parseManifest(files: PackageFile[], options: Record<string, any>, integ
     requestedCapabilities: validateCapabilities(raw.requestedCapabilities ?? options.requestedCapabilities),
     allowedHosts: validateHosts(raw.allowedHosts ?? options.allowedHosts),
     networkMode: normalizeAppBrowserNetworkMode(raw.networkMode),
+    colorScheme: normalizeAppBrowserColorScheme(raw.colorScheme),
     ...(webComponent ? { webComponent } : {}),
   };
 }
@@ -1961,6 +1969,7 @@ export function createAppBrowser(nativeKit: any, config: AppBrowserConfig): any 
       allowedHosts: app.manifest.allowedHosts,
       networkMode: normalizeAppBrowserNetworkMode(app.manifest.networkMode),
       mediaAutoplay: false,
+      colorScheme: normalizeAppBrowserColorScheme(app.manifest.colorScheme),
       updatedAt: new Date().toISOString(),
     });
   }
@@ -2529,6 +2538,7 @@ export function createAppBrowser(nativeKit: any, config: AppBrowserConfig): any 
               allowDirectNetwork: config.allowDirectWebNetwork && (policy.networkMode ?? 'full') !== 'sandboxed',
               networkMode: policy.networkMode ?? 'full',
               mediaAutoplay: policy.mediaAutoplay === true,
+              colorScheme: policy.colorScheme ?? 'dark',
               hangTerminationDelayMs: config.isolated.hangTerminationDelayMs,
             });
             if (session.nativeOrigin && session.nativeOrigin !== opened.origin) throw new Error('Isolated renderer origin changed during launch');

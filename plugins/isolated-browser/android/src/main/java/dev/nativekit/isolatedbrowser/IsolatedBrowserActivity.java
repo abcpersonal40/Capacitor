@@ -21,6 +21,7 @@ import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.webkit.CookieManager;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.SafeBrowsingResponse;
@@ -36,6 +37,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.webkit.JavaScriptReplyProxy;
 import androidx.webkit.WebMessageCompat;
 import androidx.webkit.WebViewCompat;
@@ -79,6 +82,7 @@ public final class IsolatedBrowserActivity extends Activity {
     static final String EXTRA_ALLOW_DIRECT_NETWORK = "allowDirectNetwork";
     static final String EXTRA_HANG_DELAY = "hangTerminationDelayMs";
     static final String EXTRA_NETWORK_MODE = "networkMode";
+    static final String EXTRA_COLOR_SCHEME = "colorScheme";
     static final String EXTRA_MEDIA_AUTOPLAY = "mediaAutoplay";
     private static final String MODE_SANDBOXED = "sandboxed";
     private static final String MODE_HOSTS = "hosts";
@@ -181,6 +185,19 @@ public final class IsolatedBrowserActivity extends Activity {
         initializeFromIntent(intent);
     }
 
+    // BLEND MODE: transparent bars + icon contrast from the app's colorScheme.
+    // The mini-app's page colors flow under the bars instead of a fixed strip.
+    private void applySystemBars(String scheme) {
+        Window window = getWindow();
+        WindowCompat.setDecorFitsSystemWindows(window, false);
+        window.setStatusBarColor(Color.TRANSPARENT);
+        window.setNavigationBarColor(Color.TRANSPARENT);
+        WindowInsetsControllerCompat ic = new WindowInsetsControllerCompat(window, window.getDecorView());
+        boolean lightPage = "light".equals(scheme);
+        ic.setAppearanceLightStatusBars(lightPage);
+        ic.setAppearanceLightNavigationBars(lightPage);
+    }
+
     private void showPermissionPrompt(Bundle data) {
         String requestId = data.getString("requestId", "");
         String appName = data.getString("appName", "Installed app");
@@ -246,6 +263,7 @@ public final class IsolatedBrowserActivity extends Activity {
     }
 
     private void initializeFromIntent(Intent intent) {
+        applySystemBars(intent.getStringExtra(EXTRA_COLOR_SCHEME));
         try {
             sessionId = required(intent, EXTRA_SESSION_ID);
             token = required(intent, EXTRA_TOKEN);
