@@ -182,7 +182,6 @@ function infoPlist() {
     ['LSRequiresIPhoneOS', true],
     ['UILaunchStoryboardName', 'LaunchScreen'],
     ['UIMainStoryboardFile', 'Main'],
-    ['UIRequiredDeviceCapabilities', ['armv7']],
     ['UISupportedInterfaceOrientations', [
       'UIInterfaceOrientationPortrait',
       'UIInterfaceOrientationLandscapeLeft',

@@ -22,6 +22,18 @@ async function refresh() {
   statusNode.textContent = JSON.stringify(kit.capabilities(), null, 2);
 }
 
+// Auto-detect permission changes: user grants in Settings, comes back → panel refreshes itself.
+window.NativeKit.ready().then((kit) => {
+  if (kit.isNative) {
+    kit.app.onStateChange((state) => {
+      if (state.isActive) {
+        log('app resumed · permission re-check', 'Refreshing capability state…');
+        refresh().catch(() => {});
+      }
+    });
+  }
+}).catch(() => {});
+
 const actions = {
   permissions: () => window.NativeKit.permissions.check(),
   location: () => window.NativeKit.location.current(),
