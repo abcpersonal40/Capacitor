@@ -10,7 +10,7 @@
         <!-- BLEND MODE: system bars are transparent so the page flows UNDER them
              (top strip takes the page's top color, bottom its bottom color).
              windowBackground stays dark only as a load-time fill behind the WebView.
-             MainActivity publishes --safe-area-inset-* CSS vars; the page pads itself. -->
+             MainActivity publishes safe-area-inset CSS variables; the page pads itself. -->
         <item name="android:windowBackground">#07111f</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
