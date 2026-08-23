@@ -80,11 +80,13 @@ const actions = {
     return { stored: value, readBack, match: value === readBack };
   },
   fs: async () => {
+    // 'Data' = app-private storage: কোনো permission ছাড়াই সব Android version-এ কাজ করে।
+    // (public 'Documents' লাগলে পুরনো Android-এ legacy storage permission prompt আসে।)
     const path = 'nativekit-lab/hello.txt';
     const data = `NativeKit FS test @ ${new Date().toISOString()}`;
-    await window.NativeKit.filesystem.writeFile({ path, data, directory: 'Documents', recursive: true });
-    const stat = await window.NativeKit.filesystem.stat({ path, directory: 'Documents' });
-    const read = await window.NativeKit.filesystem.readFile({ path, directory: 'Documents' });
+    await window.NativeKit.filesystem.writeFile({ path, data, directory: 'Data', recursive: true });
+    const stat = await window.NativeKit.filesystem.stat({ path, directory: 'Data' });
+    const read = await window.NativeKit.filesystem.readFile({ path, directory: 'Data' });
     return { size: stat.size, uri: stat.uri, contents: read.data };
   },
   download: async () => {

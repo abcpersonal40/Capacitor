@@ -3,9 +3,9 @@
   "app": {
     "name": "NativeKit TestLab",
     "id": "dev.nativekit.shell",
-    "versionName": "1.1.2-testlab",
-    "versionCode": 4,
-    "buildNumber": "4",
+    "versionName": "1.1.3-testlab",
+    "versionCode": 5,
+    "buildNumber": "5",
     "description": "A reusable, locally bundled Capacitor application shell",
     "defaultLanguage": "bn",
     "urlScheme": "nativekit"
@@ -53,7 +53,8 @@
     "networkStatus": true,
     "nativeSSE": true,
     "appBrowser": true,
-    "inAppBrowser": true
+    "inAppBrowser": true,
+    "preferences": true
   },
   "permissions": {
     "camera": "ছবি বা ভিডিও সংযুক্ত করতে ক্যামেরা ব্যবহারের অনুমতি প্রয়োজন।",

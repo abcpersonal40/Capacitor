@@ -62,6 +62,13 @@ function androidPermissions() {
 
 function androidManifest() {
   const permissions = androidPermissions().map((name) => `    <uses-permission android:name="${name}" />`).join('\n');
+  // @capacitor/filesystem refuses public/external storage calls unless these are DECLARED
+  // (its manifest check ignores maxSdkVersion, so caps keep them Play-safe and no-op on
+  // modern Android). App-scoped directories (Data/Library) need no permission at all.
+  const legacyStorage = config.features.filesystem
+    ? '\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />'
+      + '\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />'
+    : '';
   const cameraFeature = config.features.camera
     ? '\n    <uses-feature android:name="android.hardware.camera" android:required="false" />'
     : '';
@@ -71,7 +78,7 @@ function androidManifest() {
 
   return `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-${permissions}${cameraFeature}${locationFeature}
+${permissions}${legacyStorage}${cameraFeature}${locationFeature}
 
     <application
         android:allowBackup="false"

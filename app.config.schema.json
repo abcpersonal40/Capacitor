@@ -265,6 +265,11 @@
         },
         "inAppBrowser": {
           "type": "boolean"
+        },
+        "preferences": {
+          "type": "boolean",
+          "default": true,
+          "description": "Preferences/ key-value storage bridge. The demo and most shells need it; turning it off makes NativeKit.preferences throw."
         }
       }
     },
