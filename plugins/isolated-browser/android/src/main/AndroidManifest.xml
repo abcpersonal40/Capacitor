@@ -15,6 +15,7 @@
       android:exported="false"
       android:excludeFromRecents="true"
       android:launchMode="singleTask"
+      android:windowSoftInputMode="adjustResize"
       android:configChanges="colorMode|density|fontScale|fontWeightAdjustment|keyboard|keyboardHidden|layoutDirection|locale|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|touchscreen|uiMode"
       android:theme="@style/NativeKitIsolatedBrowserTheme" />
     <activity
@@ -23,6 +24,7 @@
       android:exported="false"
       android:excludeFromRecents="true"
       android:launchMode="singleTask"
+      android:windowSoftInputMode="adjustResize"
       android:configChanges="colorMode|density|fontScale|fontWeightAdjustment|keyboard|keyboardHidden|layoutDirection|locale|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|touchscreen|uiMode"
       android:theme="@style/NativeKitIsolatedBrowserTheme" />
   </application>

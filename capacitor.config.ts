@@ -35,6 +35,21 @@ const config: CapacitorConfig = {
       // Explicit NativeKit.http.request remains available when this is false.
       enabled: network.nativeHttp && (network.patchFetch || network.patchXMLHttpRequest),
     },
+    Keyboard: {
+      // iOS: resize the whole native WebView so viewport units track the keyboard.
+      resize: 'native',
+      // Android: never resize the WebView from the plugin — Capacitor 8 core
+      // SystemBars already pads for the IME via WindowInsets with edge-to-edge.
+      resizeOnFullScreen: false,
+      // iOS: tint the area revealed behind the keyboard from the page background
+      // so the keyboard never "blinks" a mismatched color while sliding up.
+      autoBackdropColor: 'dom',
+    },
+    SystemBars: {
+      // Keep Capacitor 8.3+ native inset handling: correct --safe-area-inset-*
+      // CSS variables plus IME-aware padding on Android (API 35+ edge-to-edge).
+      insetsHandling: 'css',
+    },
     BackgroundRunner: {
       label: backgroundRunner.label,
       src: 'runners/background-runner.js',

@@ -292,6 +292,7 @@ public final class IsolatedBrowserActivity extends Activity {
         content.setBackgroundColor(Color.WHITE);
         root.addView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(root);
+        ImeInsetsHelper.apply(root);
     }
 
     @SuppressLint("SetJavaScriptEnabled")

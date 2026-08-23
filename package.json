@@ -41,16 +41,17 @@
     "@capacitor/geolocation": "8.2.2",
     "@capacitor/haptics": "8.0.2",
     "@capacitor/ios": "8.5.0",
+    "@capacitor/keyboard": "8.0.5",
     "@capacitor/local-notifications": "8.3.0",
     "@capacitor/network": "8.0.1",
     "@capacitor/preferences": "8.0.1",
     "@capacitor/push-notifications": "8.1.2",
     "@capacitor/share": "8.0.1",
+    "@capgo/capacitor-inappbrowser": "8.15.2",
     "@nativekit/custom-native": "file:plugins/custom-native",
-    "fflate": "0.8.3",
-    "plist": "3.1.0",
     "@nativekit/isolated-browser": "file:plugins/isolated-browser",
-    "@capgo/capacitor-inappbrowser": "8.15.2"
+    "fflate": "0.8.3",
+    "plist": "3.1.0"
   },
   "devDependencies": {
     "@capacitor/cli": "8.5.0",

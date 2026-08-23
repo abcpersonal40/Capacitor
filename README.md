@@ -16,6 +16,7 @@
 - সম্পূর্ণ bridge-free remote HTTPS URL mode; installed-package session/profile/policy থেকে আলাদা browser-only controller
 - Android ও iOS native project
 - native REST/JSON HTTP, optional fetch/XHR patch, SSE/text/NDJSON streaming
+- native-grade keyboard আচরণ: `adjustResize`, Capacitor 8 SystemBars IME inset, iOS `autoBackdropColor` ও `interactive-widget` viewport meta—keyboard খুললে screen ঝাঁপ দেয় না
 - camera, foreground GPS, haptics, lifecycle, local notifications
 - advanced Android alarms; iOS 26 AlarmKit এবং Local Notifications fallback
 - OS-scheduled background runner এবং policy-gated background GPS
