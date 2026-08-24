@@ -159,3 +159,43 @@ document.querySelector('#http-form').addEventListener('submit', (event) => {
 });
 window.addEventListener('nativekitready', (event) => log('nativekitready', event.detail));
 refresh().catch((error) => log('startup error', error.message));
+
+// ── BAR BLEND TEST ───────────────────────────────────────────────────────────
+// দৃশ্যমান প্রমাণ যে status/nav bar এখন transparent: পেজের background বদলালেই
+// দুই স্ট্রিপেও সঙ্গে সঙ্গে সেই রঙে মিলে যায় (কোনো আলাদা সিস্টেম color-fill নেই)।
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${(alpha / 100).toFixed(2)})`;
+}
+(() => {
+  const byId = (id) => document.getElementById(id);
+  const colorEl = byId('bt-color'), opEl = byId('bt-opacity'), opVal = byId('bt-opacity-val');
+  const topEl = byId('bt-top'), bottomEl = byId('bt-bottom');
+  if (!colorEl || !opEl) return;
+  const bn = ['শূন্য', '১০', '২০', '৩০', '৪০', '৫০', '৬০', '৭০', '৮০', '৯০', '১০০'];
+  opEl.addEventListener('input', () => { opVal.textContent = bn[Math.round(opEl.value / 10)] + '% (আসল ' + opEl.value + '%)'; });
+  byId('bt-solid').addEventListener('click', () => {
+    const op = +opEl.value;
+    document.body.style.background = hexToRgba(colorEl.value, op);
+    // opacity কমালে নিচের decor/page-through-ও মিলে যায় — সেটাই blend-এর প্রমাণ
+    log('blend-test', `solid ${colorEl.value} opacity ${op}%`);
+  });
+  byId('bt-gradient').addEventListener('click', () => {
+    document.body.style.background = `linear-gradient(180deg, ${topEl.value} 0%, ${bottomEl.value} 100%)`;
+    log('blend-test', `gradient ${topEl.value} → ${bottomEl.value} — উপরে ${topEl.value}, নিচে ${bottomEl.value} দেখায় কিনা খেয়াল করুন`);
+  });
+  byId('bt-rainbow').addEventListener('click', () => {
+    document.body.style.background = 'linear-gradient(180deg,#ff0000,#ff9800,#ffeb3b,#4caf50,#2196f3,#3f51b5,#9c27b0)';
+    log('blend-test', 'VERTICAL rainbow — উপরে লাল, নিচে বেগুনি: দুই স্ট্রিপ দুই রঙ!');
+  });
+  byId('bt-rainbow-diag').addEventListener('click', () => {
+    document.body.style.background = 'linear-gradient(135deg,#ff0000,#ff9800,#ffeb3b,#4caf50,#2196f3,#3f51b5,#9c27b0)';
+    log('blend-test', 'DIAGONAL rainbow — উপরের ডান/বাঁ আর নিচের ডান/বাঁ আলাদা রঙ!');
+  });
+  byId('bt-reset').addEventListener('click', () => {
+    document.body.style.background = '';
+    document.body.style.backgroundColor = '';
+    log('blend-test', 'মূল dark theme-এ ফিরলো');
+  });
+})();

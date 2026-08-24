@@ -201,6 +201,33 @@
       </div>
     </section>
 
+    <section class="panel" id="blend-test">
+      <p class="eyebrow">BAR BLEND TEST</p>
+      <h2>🎨 System bar অটো মিলছে কিনা — চোখে দেখুন</h2>
+      <p class="muted" style="margin:8px 0 14px;max-width:720px;line-height:1.6">উপরের সময়/ব্যাটারি স্ট্রিপ আর নিচের বোতাম স্ট্রিপ এখন <b>transparent (কাঁচ)</b> — নিচের background বদলালেই বারগুলোও সঙ্গে সঙ্গে সেই রঙে মিলবে। কোনো রঙ বাছুন, opacity কমিয়ে দেখুন, বা একসঙ্গে অনেক রঙ (rainbow) চাপুন — একই স্ক্রিনে দুই স্ট্রিপেই আলাদা রঙ ঠিক থাকতে হবে।</p>
+      <div class="field-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:14px">
+        <label>একক রঙ
+          <input id="bt-color" type="color" value="#ff3355" style="width:100%;height:44px;padding:4px">
+        </label>
+        <label>Opacity (স্বচ্ছতা): <b id="bt-opacity-val">১০০%</b>
+          <input id="bt-opacity" type="range" min="0" max="100" value="100" style="width:100%">
+        </label>
+        <label>Gradient উপরের রঙ
+          <input id="bt-top" type="color" value="#ff0044" style="width:100%;height:44px;padding:4px">
+        </label>
+        <label>Gradient নিচের রঙ
+          <input id="bt-bottom" type="color" value="#00ccff" style="width:100%;height:44px;padding:4px">
+        </label>
+      </div>
+      <div class="inline-buttons" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <button id="bt-solid" type="button">একক রঙ লাগাও</button>
+        <button id="bt-gradient" type="button" class="secondary">২-রঙ gradient</button>
+        <button id="bt-rainbow" type="button" class="secondary">🌈 RAINBOW (৭ রঙ একসঙ্গে)</button>
+        <button id="bt-rainbow-diag" type="button" class="secondary">🌈 Diagonal rainbow</button>
+        <button id="bt-reset" type="button" class="ghost">↺ মূল রঙে ফিরো</button>
+      </div>
+    </section>
+
     <section class="panel log-panel">
       <div class="log-heading"><div><p class="eyebrow">HOST EVENT LOG</p><h2>Live output</h2></div><button id="clear" class="ghost">Clear</button></div>
       <pre id="log" aria-live="polite"></pre>
