@@ -44,7 +44,7 @@ Node.js ইঞ্জিন চালানো যায় — কোনটা b
 ## ⚠️ রিস্কের চূড়ান্ত তালিকা
 ১. **Node 18 EOL** — security patch বন্ধ; mini-app sandbox আমাদেরকে রক্ষারেও Node রানটাইম নতুন attack surface
 ২. **APK সাইজ +৪০-৮০MB** (libnode প্রতি ABI) — ২৪MB-signed APK যেন ৬০-১০০MB
-৩. **স্টার্টআপ + মেমরি চাপ** — general-তারিকে low-end ডিভাইসে ব্যাকগ্রাউন্ড Node চলা অতিরিক্ত/st ആপেক্ষিক ব্যয়
+৩. **স্টার্টআপ + মেমরি চাপ** — সাধারণত low-end ডিভাইসে ব্যাকগ্রাউন্ড Node চালানো ভারী অতিরিক্ত ব্যয়
 ৪. **কোনো child process নয়** — `child_process.spawn/fork` মোবাইলে চলবে না (single-process প্রকৃতি) → sous npm package যেগুলো binary spawn করে = **না**; Android-এ `fs.link` না; `os.tmpdir` জমা হয় নিজে ঝাড়া লাগে
 ৫. **Native addon** (better-sqlite3, sharp ইত্যাদি) ব্যবহারে আলাদা prebuild লাগবে
 ৬. **Maintenance debt** — upstream টিকে থাকছে না; maintainer নিজেই সরে যেতে বলছে
