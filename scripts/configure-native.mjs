@@ -422,18 +422,18 @@ public class MainActivity extends BridgeActivity {
         decorView.setOnHierarchyChangeListener(new ViewGroup.OnHierarchyChangeListener() {
             @Override public void onChildViewAdded(View parent, View child) {
                 if (!decorWatcherArmed || child == decorView) return;
-                setImmersive(true);
+                applyImmersive(true);
             }
             @Override public void onChildViewRemoved(View parent, View child) {
                 if (!decorWatcherArmed) return;
-                setImmersive(false);
+                applyImmersive(false);
                 applyBlendWindow();
             }
         });
         decorView.post(() -> decorWatcherArmed = true); // ignore the initial layout children
     }
 
-    private void setImmersive(boolean active) {
+    private void applyImmersive(boolean active) {
         if (immersiveActive == active) return;
         immersiveActive = active;
         WindowInsetsControllerCompat ic = new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
