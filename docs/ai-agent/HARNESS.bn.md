@@ -92,7 +92,7 @@ IDB v 4-এ আগেই `netstats` আছে; পরের মাইগ্র�
 - `www/agent/settings.html` — provider বাছাই, API key ইনপুট, per-tool permission টেবিল, ব্যালান্স/limit
 - Manager-এ নতুন ট্যাব: **🤖 Agent** — audit লগ নজরে রাখা, token ব্যয়, memory facts এডিট/মুছতে পারা
 
-## ৯) माइলস্টোন টাইমলাইন
+## ৯) মাইলস্টোন টাইমলাইন
 - **M1 (প্রথম deliver):** চ্যাট UI + anthropic.js + ৪টা basic tool (memory/files/http/device) + approval prompt → owner "একটা কথা লিখলে ফাইলে লিখে রাখি" টাইপ জিনিস করতে পারবে
 - **M2:** টুল রেজিস্ট্রি সম্পন্ন (অ্যালার্ম, camera ask, miniapp.open) + Agent Manager ট্যাব + audit
 - **M3:** ব্যাকগ্রাউন্ড autonomous টাস্ক (backgroundRunner-এ চলমান agent tick), আরও memory ফ্যাক্ট ফ্রেগমেন্টেশন, token ব্যয় রেপোর্ট
@@ -105,4 +105,17 @@ IDB v 4-এ আগেই `netstats` আছে; পরের মাইগ্র�
 ---
 
 ## সংযোজন: ভবিষ্যতের পথ (Node runtime research-এর পরবর্তি)
-আগেকার deep research (`docs/research/NODE-RUNTIME.bn.md`) জানালাম — Node.js প্রয়োজন নেই এই হারনেসের জন্য: **চাহিদা পুরোটাই আমাদের WebView JS + bridge напাकोয়াটা মেশে**; npm ecosystem যেখানে লেগে থাকে সেখানেই তখন capacitor-nodejs-এর Android অংশ wrapper হিসেবে আনা হবে।
+আগেকার deep research (`docs/research/NODE-RUNTIME.bn.md`) জানালাম — Node.js প্রয়োজন নেই এই হারনেসের জন্য: **চাহিদা পুরোটাই আমাদের WebView JS + bridge নিশেই মেটে**; npm ecosystem যেখানে লেগে থাকে সেখানেই তখন capacitor-nodejs-এর Android অংশ wrapper হিসেবে আনা হবে।
+
+## সংযোজন-২ (২০২৬-০৮-২৪): রোডম্যাপ ডকের সাথে সংশোধন ও স্ট্যাটাস
+
+- এই ডকুমেন্ট **কংক্রিট প্রতিমান**; কৌশলগত/গ্যাপ-ভিত্তিক রূপরেখা: [`docs/research/AGENTIC-ROADMAP.bn.md`](../research/AGENTIC-ROADMAP.bn.md) (P0–P3 ফেজ: tool JSON Schema + risk matrix + on-device GGUF + MCP ব্রিজ)। দুটোই একই পরিকল্পনার দুই দিক — এই ডকে M1-ই রোডম্যাপের P0.1।
+- টুল-ট্যাঙ্ক বৃদ্ধি (রোডম্যাপ/প্লাগিন-ম্যাপ থেকে — [`docs/research/PLUGIN-ECOSYSTEM.bn.md`](../research/PLUGIN-ECOSYSTEM.bn.md)):
+  - `location.geofence.add/remove` — geocoder + geofence প্লাগিন দিয়ে **"যেখানে পৌঁছালে মনে করাও"** (টায়ার-২)
+  - `speech.listen` / `speech.say` — STT/TTS (টায়ার-১) — ভয়েস-এজেন্ট মোড
+  - `torch.toggle`, `qr.scan` (টায়ার-১/২) — Utilities-স্তর দ্রুত জয়
+  - `nearby.send/peers` — v1.4.x-এ **শিপড** Nearby P2P ভেতরে; agent-mesh-এ P2 ফেজে রাখা আছে
+  - `clipboard.read/write`, `dialog.confirm` — টায়ার-১ প্যাকে; dialog-চাইতে high-risk consent-এর আলাদা UI না বানিয়েই
+- স্ট্যাটাস: M0 (এই নকশা) ✅ · M1 (chat + ৪ টুল + approval) ⏳ — মূল অবকাঠামো (secure store, SSE streaming, audit, consent prompts) বিদ্যমান; মূল কাজ `www/agent/` মডিউলটাই লেখা।
+
+> Provider নোট: প্রথম বাছাই Claude/Anthropic থাকলেও, এজেন্ট-লুপ ও টুল-রেজিস্ট্রি সম্পূর্ণ provider-agnostic রাখা আবশ্যক — একই tool schema দিয়ে Claude tool_use, OpenAI function calling ও Gemini function-declarations তিনটাই চলে; adapter-ই পারিশা করে।

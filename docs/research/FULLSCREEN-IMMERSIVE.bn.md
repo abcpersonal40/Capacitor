@@ -38,4 +38,14 @@
 1. app-এ কোনো HTML5 ভিডিও/embedded পাতা খুলে "fullscreen" চাপুন (যে কোনো ভিডিও/fullscreen-able element)
 2. দেখতে হবে: nav+status বার **মিলে যায়**, কনটেন্ট একদম edge-থেকে edge
 3. নিচের edge-এ আলতো swipe → বার translucent-ভাবে ফিরে, কয়েক সেকেন্ডে আবার লুকে যায়
-4. fullscreen থেকে exit → дарুণ আবার blend (page রঙে মিলে)
+4. fullscreen থেকে exit → আবার blend (page রঙে মিলে)
+
+---
+
+## ✅ চূড়ান্ত অবস্থা (v1.3.4 → **v1.3.6**, শিপড)
+
+1. **v1.3.4** — decorView hierarchy-listener দিয়ে element-fullscreen detect (ভুল: সব WebView layout-এ ফলস-পজিটিভ → সর্বদা-ফুলস্ক্রিন রিগ্রেশন)
+2. **v1.3.5** — ≥70% window-size gate সহ filtered listener — ফলস-পজিটিভ বন্ধ, কিন্তু শিখেছি: **Chromium WebView element-fullscreen কখনো onShowCustomView বা অনন্য decor-event দেয় না** — আসল ডিটেক্টর হিসেবে ব্যর্থ
+3. **v1.3.6 (শিপড, commit `4b6f9a0`)** — আসল সমাধান: **JS `fullscreenchange` ব্রিজ**। buildDocument-এ mini-app ডকুমেন্টে ইঞ্জেক্টেড স্ক্রিপ্ট `window.NativeKitImmersive.setFullscreen(!!document.fullscreenElement)` ডাকে; native তখনই bars লুকায়/ফেরায়। Main shell-ও same `addJavascriptInterface` পথ; decor-listener শুধু fallback। সাথে বহু-বোতাম fullscreen টেস্ট পেজ।
+
+> শিক্ষা: WebView element-fullscreen-এ native-side detection আশা অর্থহীন — DOM event + bridge-ই সঠিক পথ।

@@ -31,7 +31,7 @@ Node.js ইঞ্জিন চালানো যায় — কোনটা b
   কারণ: (১) upstream `nodejs-mobile` unmaintained → Node 18.20 **এসই EOL মধ্য-২০২৫** 🚨 (security patch আসবে না), (২) Electron সাপোর্ট বাদ চলে গেছে, (৩) সাইজ/startup/মেমরির অতিরিক্ত খরচ বড়।
 
 ### ২) nodejs-mobile-cordova — Janea মূলামূল, কিন্তু Capacitor-এর জন্য নয়
-- Janea Systems ২০২৪-এ সমর্থন বন্ধ করে দিয়েছে; `nodejs-mobile/nodejs-mobile-cordova` fork community-র হাতে আধুম livelihood-এ আছে
+- Janea Systems ২০২৪-এ সমর্থন বন্ধ করে দিয়েছে; `nodejs-mobile/nodejs-mobile-cordova` fork কমিউনিটির হাতে জীবন-মৃত্যুর মাঝে টিকে আছে
 - যুক্ত করতে NDK যন্ত্রণা, GYP hook, cordova hook লাগে — **Capacitor-এর সাথে সরাসরি মিলে না**; আমাদের কাস্টম প্লাগিনে বসাতে manual rewiring লাগবে
 - Node **১৮.৭** আরও পুরোনো; iOS-এ চলে, কিন্তু JIT ছাড়া V8 interpreted — ধীর।
 
@@ -47,7 +47,7 @@ Node.js ইঞ্জিন চালানো যায় — কোনটা b
 ৩. **স্টার্টআপ + মেমরি চাপ** — general-তারিকে low-end ডিভাইসে ব্যাকগ্রাউন্ড Node চলা অতিরিক্ত/st ആপেক্ষিক ব্যয়
 ৪. **কোনো child process নয়** — `child_process.spawn/fork` মোবাইলে চলবে না (single-process প্রকৃতি) → sous npm package যেগুলো binary spawn করে = **না**; Android-এ `fs.link` না; `os.tmpdir` জমা হয় নিজে ঝাড়া লাগে
 ৫. **Native addon** (better-sqlite3, sharp ইত্যাদি) ব্যবহারে আলাদা prebuild লাগবে
-৬. **Maintenance debt** — upstream তার শক্তিতোঁকড়ে পড়া নেই; maintainer নিজেই সরে যেতে বলছে
+৬. **Maintenance debt** — upstream টিকে থাকছে না; maintainer নিজেই সরে যেতে বলছে
 
 ## 🎯 ভার্ডিক্ট
 **"কোনটা best?" → hampoelz/Capacitor-NodeJS v1.0.0-beta.10** — আজকের দিনে সবচেয়ে তাজা, Capacitor v8-সামঞ্জস্যপূর্ণ, 16KB-page সমাধানসহ prebuiltওয়ালা।
@@ -59,3 +59,7 @@ Node.js ইঞ্জিন চালানো যায় — কোনটা b
 - **এখন (আজকের):** backgroundRunner + app-browser network freedom (`full`-ডিফল্ট) দিয়েই এগিয়ে যাই — এটাই আমাদের mini-app সিস্টেমের তিজোরির মতো সঠিক পথ
 - **ভবিষ্যতে দরকার হলে:** capacitor-nodejs beta.10-এর **Android native অংশ** (prebuilt `libnode.so` + `NodeJS.java` + bridge C++) কেটে নিয়ে **নিজস্ব NativeKit plugin** আকারে বসাই — cordova dependency বাদ দিয়ে আমাদের token-secured ব্রিজের ভিতরে। iOS তখন আলোচনা করি।
 - **নজরে রাখতে:** Tauri v2 mobile, এবং ভবিষ্যতে nodejs-mobile-এর জাগরণ (community যদি আবার Node 20/22 prebuilt ছাড়ে) — তখন প্ল্যান পুনর্মূল্যায়ন।
+
+---
+
+**ক্রস-লিংক:** AI-agent হারনেসে এই গবেষণার সিদ্ধান্ত অনুসরণ করা হয়েছে — Node ছাড়াই WebView JS runtime: [`../ai-agent/HARNESS.bn.md`](../ai-agent/HARNESS.bn.md) · on-device ব্রেইনের সত্যিকার প্রার্থী llama.cpp: [`AGENTIC-ROADMAP.bn.md`](./AGENTIC-ROADMAP.bn.md) (P0.3)।

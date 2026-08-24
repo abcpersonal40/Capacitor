@@ -1,6 +1,6 @@
 # NativeKit পূর্ণ API রেফারেন্স — ওয়েব ডেভেলপার সংস্করণ
 
-> **সর্বশেষ source-audit:** 18 আগস্ট 2026  
+> **সর্বশেষ source-audit:** 18 আগস্ট 2026 · সংশোধন: 24 আগস্ট 2026 (`NativeKit.nearby` যোগ)  
 > **Runtime:** trusted bridge `1.0.0`, installed-package façade `app-browser-1.1.0`  
 > **Pinned stack:** Capacitor `8.5.0` এবং `package.json`-এ থাকা plugin version-সমূহ
 
@@ -1306,3 +1306,35 @@ Measurement-এর সময় local package দুটি `node_modules/@nativekit
 
 এই reference বর্তমান runtime façade, installed bootstrap allowlist, broker sanitizer/ownership/quota, local plugin declaration, generated TypeScript template এবং pinned dependency declaration মিলিয়ে লেখা। Generated declaration standalone TypeScript `ES2023,DOM` check পাস করে। Android/iOS OS behavior শেষ পর্যন্ত platform permission, entitlement, WebView/WebKit/provider version এবং store policy-এর অধীন—তাই JavaScript type correctness native device acceptance test-এর বিকল্প নয়।
 ptance test-এর বিকল্প নয়।
+
+---
+
+## সংযোজন (24 আগস্ট 2026): `NativeKit.nearby` — অফলাইন P2P facade
+
+`@capacitor-trancee/nearby-connections@0.2.6` এর উপর গড়া। Feature-gate: `features.nearby=false` হলে প্রতিটি কল throw করে। Trusted `www/`-তেই ব্যবহারযোগ্য; installed mini-app-এর কাছে এখনো expose করা হয় না (ভবিষ্যৎ capability-তালিকায় যুক্ত হতে পারে)। সম্পূর্ণ চুক্তি: payload সবসময় **base64 স্ট্রিং** — facade নিজেই UTF-8↔base64 চালায়।
+
+### Lifecycle
+| কল | অর্থ |
+|---|---|
+| `initialize({endpointName?, serviceID?, strategy?, lowPower?, autoConnect?, payload?})` | Nearby চালু; strategy: `'star'|'cluster'|'pointToPoint'` — **দুই পক্ষে মিলা আবশ্যক** |
+| `reset()` | সব কিছু থামিয়ে reset |
+| `status()` | `{isAdvertising, isDiscovering}` — UI reconcile-এ ব্যবহার করুন (নিয়ম: UI ফ্ল্যাগকে source-of-truth নয়) |
+
+### Visibility
+`startAdvertising({endpointName?, connectionType?, lowPower?})`, `stopAdvertising()`, `startDiscovery({lowPower?})`, `stopDiscovery()`
+
+### সংযোগ
+`requestConnection({endpointID, endpointName?})` · `acceptConnection({endpointID})` · `rejectConnection({endpointID})` · `disconnect({endpointID})`
+
+### Payload
+- `sendPayload({endpointID?|endpointIDs?, payload, alreadyBase64?})` → `{payloadID, payloadType, status}` — **BYTES only**; raw boundary `MAX_PAYLOAD_BYTES=1047552`; facade ডিফল্টে payload-কে base64-এনকোড করে
+- `cancelPayload({payloadID})`
+- হেল্পার: `encodeBase64Utf8(text)`, `decodeBase64Utf8(b64)`
+
+### পারমিশন
+`checkPermissions()` → `{wifiNearby, wifiState, bluetoothNearby, bluetoothLegacy, location, locationCoarse}` · `requestPermissions(groups?)` — group না দিলে ছয়টাই। **কোনো একটি denied থাকলে native advertise/discovery `8034`-এ ব্যর্থ যায়** — UI-তে Geolocation ফ্লো + App Settings deeplink রাখা হার্ড-রুল।
+
+### ইভেন্ট (১২টি — `addListener(name, cb)`)
+`onPermissionChanged(granted)` · `onBluetoothStateChanged(state)` · `onEndpointFound/…Lost` `{endpointID, endpointName?}` · `onEndpointInitiated` `{…+authenticationToken, authenticationStatus, isIncomingConnection}` · `onEndpointConnected/…Rejected` `{endpoint}` · `onEndpointFailed` `{endpoint+status}` · `onEndpointDisconnected` · `onEndpointBandwidthChanged` `{endpoint+quality: unknown|low|medium|high}` · `onPayloadReceived` `{endpointID, payloadID, payloadType, payload(base64)}` · `onPayloadTransferUpdate` `{payloadID, status: success|canceled|failure|inProgress, bytesTransferred, totalBytes}`
+
+TestLab-এ ফুল reference-এর ব্যবহারিক প্রমাণ: `www/app.js` "Nearby P2P Lab" মডিউল (চ্যাট + chunked ফাইল প্রোটোকল `fmeta/fchunk/fend/fcancel`, chunk=262,143B)।

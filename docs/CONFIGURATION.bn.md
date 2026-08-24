@@ -189,3 +189,13 @@ Validator schema ছাড়াও অন্তত এসব সম্পর্ক
 - App Browser prompt defaults/timeout, URL-mode HTTPS host syntax এবং isolated-renderer dependency
 
 `npm run check` config validation-এর সঙ্গে typecheck, tests ও staging-ও চালায়।
+
+---
+
+## `features.nearby` (24 আগস্ট 2026 সংযোজন)
+
+- ডিফল্ট: `false` — `true` দিলে **Nearby Connections P2P** সক্রিয় হয় (TestLab-এ "📡 Nearby P2P" কার্ড)।
+- কনফিগ-ফ্লো: `capacitor.config.ts`-এ `plugins.NearbyConnections = { endpointName: app.name, serviceID: app.id }` অটো-জেনারেট; strategy runtime-এ `NativeKit.nearby.initialize({ strategy })`-তে যায় (UI-তে বদলানো যায় — পরিবর্তনে Reset → Start)।
+- **Android নিয়ম:** প্লাগিনটা ফাঁকা manifest শিপ করে — `configure-native.mjs` টেমপ্লেটেই BLUETOOTH(_ADMIN)/SCAN(neverForLocation)/ADVERTISE/CONNECT, NEARBY_WIFI_DEVICES(neverForLocation), ACCESS/CHANGE_WIFI_STATE, CHANGE_NETWORK_STATE জেনারেট হয় (শিক্ষা: ম্যানিফেস্ট হাতে এডিট হারায় — টেমপ্লেটেই করুন)।
+- **iOS:** `NSBluetoothAlwaysUsageDescription` + `NSLocalNetworkUsageDescription` প্লিস্টে বসে।
+- **GMS আবশ্যক** — Play Services-বিহীন ডিভাইসে `initialize` ব্যর্থ হবে; অ্যাপের বাকি সব ফিচার তখনও ঠিকঠাক চলে।

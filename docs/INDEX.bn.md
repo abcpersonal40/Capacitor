@@ -1,0 +1,28 @@
+# 📚 নথিপত্র সূচিকা (Documentation Index)
+
+সব ডক দুই ভাগে — দ্রুত রেফারেন্স (ব্যবহারকালীন) বনাম ডিপ-রিসার্চ (সিদ্ধান্তের পেছনের যুক্তি)।
+
+## দ্রুত রেফারেন্স
+| ডক | এক লাইনে |
+|---|---|
+| [`API-REFERENCE.bn.md`](./API-REFERENCE.bn.md) | `window.NativeKit`-এর সম্পূর্ণ API — তিন trust tier, সব facade (v1.4.1-এ `nearby` যোগ) |
+| [`CONFIGURATION.bn.md`](./CONFIGURATION.bn.md) | `app.config.json`-এর প্রতিটি field + `features.*` গেট (v1.4.x: `nearby`) |
+| [`SECURITY-POLICY.bn.md`](./SECURITY-POLICY.bn.md) | Trust boundary, capability gate, audit, network mode — "golden rules" |
+| [`BUILD-SIGNING-CI.bn.md`](./BUILD-SIGNING-CI.bn.md) | সাইনিং, CI পাইপলাইন, রিলিজ প্রক্রিয়া |
+| [`APP-REPLACEMENT.bn.md`](./APP-REPLACEMENT.bn.md) | অন্য অ্যাপ/আইডি রিলিজ করার নিয়ম (App ID, store record) |
+| [`IN-APP-BROWSER-COMPARISON.bn.md`](./IN-APP-BROWSER-COMPARISON.bn.md) | Capgo inappbrowser বেনামে বাছাইকরণ — বিকল্পগুলোর সঙ্গে তুলনা |
+| [`CAPACITOR-8-RESEARCH-AUDIT.bn.md`](./CAPACITOR-8-RESEARCH-AUDIT.bn.md) | Capacitor v8.5-এর গভীর audit |
+
+## ডিপ-রিসার্চ (research/)
+| ডক | সিদ্ধান্ত যেটার পেছনে এটা |
+|---|---|
+| [`research/NEARBY-CONNECTIONS-PLUGIN.bn.md`](./research/NEARBY-CONNECTIONS-PLUGIN.bn.md) | v1.4.x P2P ইন্টিগ্রেশন — API বিশ্লেষণ + ইন্টিগ্রেশন শিক্ষা (v1.4.1 ফিক্সসহ) |
+| [`research/AGENTIC-ROADMAP.bn.md`](./research/AGENTIC-ROADMAP.bn.md) | "সবচেয়ে শক্তিশালী agentic অ্যাপ"-এর গ্যাপ-অ্যানালাইসিস |
+| [`research/PLUGIN-ECOSYSTEM.bn.md`](./research/PLUGIN-ECOSYSTEM.bn.md) | ভবিষ্যৎ প্লাগিন বাছাই — টায়ার-ম্যাপ (clipboard/toast/torch → geofence/MLKit) |
+| [`research/NODE-RUNTIME.bn.md`](./research/NODE-RUNTIME.bn.md) | মোবাইলে full Node.js চালানোর প্রশ্ন → ভার্ডিক্ট: না (llama.cpp পথেই যাই) |
+| [`research/FULLSCREEN-IMMERSIVE.bn.md`](./research/FULLSCREEN-IMMERSIVE.bn.md) | Fullscreen + blend বারের গবেষণা → v1.3.6 JS bridge জয় |
+
+## এজেন্ট পরিকল্পনা
+| ডক | |
+|---|---|
+| [`ai-agent/HARNESS.bn.md`](./ai-agent/HARNESS.bn.md) | Agent harness-এর কংক্রিট আর্কিটেকচার (M1 = রোডম্যাপের P0.1) |

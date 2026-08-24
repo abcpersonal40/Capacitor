@@ -22,6 +22,7 @@
 - OS-scheduled background runner এবং policy-gated background GPS
 - Preferences, native SQLite, Keychain/Android Keystore-backed secure storage
 - filesystem, progress-সহ upload/download, share, network state
+- **Nearby Connections P2P** (v1.4.x): সম্পূর্ণ অফলাইন device-to-device — advertise/discovery, auto-accept pairing, গ্রুপ চ্যাট ও chunked ফাইল ট্রান্সফার (Bluetooth/BLE/Wi-Fi Direct);পারমিশন টেমপ্লেট-গেটেড — `features.nearby`
 - push API/plugin প্রস্তুত; Firebase/APNs credentials ইচ্ছাকৃতভাবে এখনো যোগ করা হয়নি
 - পৃথক HTTPS/localhost web target-এর জন্য optional Service Worker; installed native app-এর জন্য নয়
 - GitHub Actions: debug/release APK, AAB, Xcode 26 compile validation, signed IPA export

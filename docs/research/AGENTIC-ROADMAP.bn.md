@@ -32,7 +32,7 @@
 - **দ্বিতীয় ধাপ (অফলাইন মোড):** on-device inference —
   - [`llama-cpp-capacitor@0.2.2`](https://www.npmjs.com/package/llama-cpp-capacitor) (arusatech): llama.cpp সরাসরি ভেতরে — chat, streaming, **multimodal**, **TTS**, LoRA, **embeddings, reranking** — Android+iOS+Web। লো-এন্ড ডিভাইসে llama.cpp-ই সবচেয়ে ধারাবাহিক ([2026 গাইড](https://docs.octomil.com/blog/on-device-llm-inference-2025-2026/) — লো পাওয়ার টার্গেটে CPU ≈ GPU)।
   - বিকল্প: [Cap-go/`capacitor-llm`](https://open-awesome.com/projects/capacitor-llm) (Android MediaPipe GenAI + iOS Apple Intelligence) — সিস্টেম-মডেল ব্যবহারের পথ।
-  - বাস্তব লক্ষ্য: **1B-3B GGUF** (Qwen2.5-1.5B / Llama-3.2-1B/3B / SmolLM2 / Phi-4-mini) — মিডরেঞ্জে ~10-20 tok/s ([বেঞ্চমার্ক](https://docs.octomil.com/blog/on-device-llm-inference-2025-2026/)); মডেল ডাউনলোড/সচল সংরক্ষণে আমাদের `fileTransfer`+`filesystem` (বিদ্যমান!) + `_PLAY_SERVICE_`-নিরপে বিকল্প হোস্টিং।
+  - বাস্তব লক্ষ্য: **1B-3B GGUF** (Qwen2.5-1.5B / Llama-3.2-1B/3B / SmolLM2 / Phi-4-mini) — মিডরেঞ্জে ~10-20 tok/s ([বেঞ্চমার্ক](https://docs.octomil.com/blog/on-device-llm-inference-2025-2026/)); মডেল ডাউনলোড/সচল সংরক্ষণে আমাদের `fileTransfer`+`filesystem` (বিদ্যমান!) + GMS-নিরপেক্ষ বিকল্প হোস্টিং।
 - **ট্যাগলাইন হিসেবে মাথায় রাখুন:** "ক্লাউড না থাকলেও এজেন্ট চলে" — আমাদের Nearby P2P আর এটা মিলে পুরোপুরি ওয়্যার-টাইম-প্রুফ।
 
 **B. ফরমাল Tool Registry (risk-classified)**
@@ -44,7 +44,7 @@
 - **background-runner** (বিদ্যমান)-এ long-task orchestration; প্রতিটি রানের audit লগে tool-call choreography সংরক্ষণ।
 
 **D. মেমরি লেয়ার (vector + per-agent)**
-- Embeddings → KNN — `sqlite-vec`/vip — আমরা [`@capacitor-community/sqlite`](https://github.com/Cap-go/capacitor-llm) ব্যবহার করি, `sqlite-vec` এক্সটেনশন একই অথরের কমিউনিটি প্যাকেজে পাওয়া যায়; না পেলে JS-side brute-force KNN (代 ১০ক রেকর্ড পর্যন্ত যথেষ্ট)।
+- Embeddings → KNN — `sqlite-vec`/vip — আমরা [`@capacitor-community/sqlite`](https://github.com/Cap-go/capacitor-llm) ব্যবহার করি, `sqlite-vec` এক্সটেনশন একই অথরের কমিউনিটি প্যাকেজে পাওয়া যায়; না পেলে JS-side brute-force KNN (১০ হাজার রেকর্ড পর্যন্ত যথেষ্ট)।
 - প্রতিটি মিনি-অ্যাপের নিজস্ব মেমরি নেমস্পেস — টোকেন-বাউন্ড স্টোরেজের উপর memory namespace: এটাই "agent ID = first-class principal" প্যাটার্ন ([WorkOS](https://workos.com/blog/ai-agent-credentials))।
 
 ### 🟡 P1 — নিম্ন-লাগত বড়-প্রভাব মাল্টিমোডাল ইনপুট/আউটপুট
@@ -89,8 +89,17 @@
 
 ## ৪) রিস্ক নোট
 1. **অ্যাপ-স্টোর রিভিউ:** on-device মডেল ডাউনলোড + অটোমেশন — Play-এ "User Data Policy" ডিসক্লোজার আপডেট লাগবে (background GPS-এর সাথে যা করে এসেছি)।
-2. **থার্মাল/ব্যাটারি:** সাস্টেইন্ড LLM inference ২-৪ ঘণ্টায় ব্যাটারি খালি করে ([gaउtডিdata](https://www.promptquorum.com/local-llms/mobile-local-llms)) — ডিফল্ট `max_turns`+প্রিডিক্ট ক্যাপ অপর্য্যোপ্ত।
-3. **LLM pane-টুল call অপ্রেশনা** হলে loop-টিকে force-stop পথ রাখুন (প্রতি রানে kill-switch UI + audit log-এ "aborted" ইভেন্ট)।
+2. **থার্মাল/ব্যাটারি:** সাস্টেইন্ড LLM inference ২-৪ ঘণ্টায় ব্যাটারি খালি করে ([মোবাইল-LLM গাইড ডেটা](https://www.promptquorum.com/local-llms/mobile-local-llms)) — ডিফল্ট `max_turns`+প্রিডিক্ট ক্যাপ অপরিহার্য।
+3. **LLM টুল-কল গলগিয়ে গেলে/ভুল টুল বাছলে** loop-টিকে force-stop দেওয়ার পথ রাখুন (প্রতি রানে kill-switch UI + audit log-এ "aborted" ইভেন্ট)।
 4. প্রম্পট-ইনজেকশনে সবচেয়ে বড় প্রতিরক্ষা আমাদেরটা **আগে থেকেই আছে**: capability RPC বাউন্ডারি — এটা intact রাখা প্রথম কদম।
 
 **সোর্স:** [Mobile-MCP (GitHub)](https://github.com/mobile-next/mobile-mcp) · [Mobile-MCP (AgenticOS'26 পেপার)](https://os-for-agent.github.io/papers/AgenticOS_2026_paper_18.pdf) · [On-Device LLM গাইড 2025-26](https://docs.octomil.com/blog/on-device-llm-inference-2025-2026/) · [llama-cpp-capacitor](https://www.npmjs.com/package/llama-cpp-capacitor) · [Cap-go capacitor-llm](https://open-awesome.com/projects/capacitor-llm) · [Agentic SDLC security](https://www.augmentcode.com/guides/security-architecture-agentic-sdlc) · [Agent sandboxing 2026](https://northflank.com/blog/how-to-sandbox-ai-agents) · [Harness engineering](https://medium.com/@tort_mario/ai-agent-best-practices-production-ready-harness-engineering-2026-guide-c1236d713fac) · [WorkOS agent credentials](https://workos.com/blog/ai-agent-credentials) · [Mobile LLM apps 2026](https://www.promptquorum.com/local-llms/mobile-local-llms)
+
+---
+
+## সংযোজন (২০২৬-০৮-২৪): সহ-ডকুমেন্ট লিঙ্কম্যাপ
+
+- **কংক্রিট নকশা:** [`docs/ai-agent/HARNESS.bn.md`](../ai-agent/HARNESS.bn.md) — M1 = এই রোডম্যাপের P0.1 (BYOK chat + loop + ৪ tool + approval)।
+- **প্লাগিন ম্যাপ:** [`PLUGIN-ECOSYSTEM.bn.md`](./PLUGIN-ECOSYSTEM.bn.md) — STT/TTS/geofence/QR/torch কোন টায়ারে।
+- **শিপড v1.4.x:** [`NEARBY-CONNECTIONS-PLUGIN.bn.md`](./NEARBY-CONNECTIONS-PLUGIN.bn.md) — P2 ফেজের "agent mesh" অর্ধেক বাস্তব।
+- **নিরাপত্তা বাউন্ডারি:** [`../SECURITY-POLICY.bn.md`](../SECURITY-POLICY.bn.md) — LLM কখনো raw bridge পাবে না; risk-classified consent = গোল্ডেন নিয়ম।

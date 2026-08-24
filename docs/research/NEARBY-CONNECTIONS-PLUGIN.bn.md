@@ -137,3 +137,27 @@ Google-এর **Nearby Connections API**-র Capacitor র‍্যাপার 
 
 
 **শিপড:** v1.4.0-testlab (vCode 15, commit 1c25687) — release 375841096; সব প্রোব প্রিন্ট `ALL-MANIFEST-OK`।
+
+---
+
+## 🔧 v1.4.1 — ডিভাইস-টেস্ট থেকে আসা UX প্যাচ (শিপড 7eeefa0)
+
+প্রথম ডিভাইস-টেস্টে ইভেন্ট-লগে তিনটা সমস্যা দেখা গেছে ও সমাধান হয়েছে:
+
+### ১) `8034: MISSING_PERMISSION_ACCESS_COARSE_LOCATION`
+- **কারণ:** প্লাগিনের native implement-এ advertise/discovery-র আগে **COARSE/FINE লোকেশন পারমিশন চেক করা হয়** (Wi-Fi Aware/ধারবাহিক BT-এর legacy নিয়ম)। আমরা manifest-এ neverForLocation দিয়েও রেখেছিলাম (যথাযথ — তবুও প্লাগিন যাচাই করে)। Android দুইবার deny করলে আর prompt-ই আসে না।
+- **ফিক্স (www):** Start-এ permission রিটার্নে `location/locationCoarse` missing দেখা গেলে আগে আমাদের **Geolocation permission ফ্লো** (`NativeKit.permissions.requestLocation()`) দিয়ে আবার চাওয়া → তারপর প্লাগিনের group রিট্রাই। শেষে ব্যর্থ হলে লগে পরিষ্কার গাইড + হেডারে নতুন **⚙️ Settings বাটন** (`NativeKit.permissions.openAppSettings()`) দিয়ে সরাসরি App Settings খোলা।
+
+### ২) `8001: STATUS_ALREADY_ADVERTISING` (আর সেই সাথে `ALREADY_DISCOVERING` — 8002)
+- **কারণ:** Overlay বন্ধ করে আবার খুললে আমার JS-র `advertising/discovering` ফ্ল্যাগ হারায় (স্টেট overlay-গৃহিত নয়, মডিউল-স্কোপে) — কিন্তু native-তখন চলমান। UI আবার "advertise শুরু" করতে গেলে SDK তোহে 8001 দেয়।
+- **ফিক্স:** (ক) boot-এ `NearbyConnections.status()` ডেকে **`syncNativeStatus()`** — UI ফ্ল্যাগ/বোতাম-লেখা native অবস্থার সাথে মিলিয়ে ফেলা; (খ) `api()`-লেভেলে 8001/8002/8003 soft-pass (ℹ️ ইনফো লগ, ওয়ার্নিং নয় — যেহেতু এগুলো মানেই native-এ কাজ চলছে)।
+
+### ৩) UI-বার্তা পরিশীলন
+- peer ছাড়া Send চাপলে কেবল সতর্কতা নয় — এখন পথও দেখায়: *"🔍 Discover চালিয়ে 🔗 Connect করুন"*
+- এরর-ম্যাপে 8047 (MISSING_FEATURE) যুক্ত।
+
+**শিল্প-সত্য (শিক্ষা):** যে SDK-তে native-state থাকে, সেখানে UI-side লোকাল ফ্ল্যাগকে source-of-truth ধরা ভুল — সবসময় `status()` দিয়ে reconcile করুন। Bluetooth/location-tracking/alarm — সব native-stateful প্লাগিনে একই নিয়ম।
+
+### ছোট সতর্কতা
+- peer ছাড়া Send চাপলে শুধু লগে বার্তা আসে (বাটন disabled নয়) — শেখার সুবিধার জন্য এটা ইচ্ছাকৃত।
+
