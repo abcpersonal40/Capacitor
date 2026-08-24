@@ -128,9 +128,12 @@ Google-এর **Nearby Connections API**-র Capacitor র‍্যাপার 
 ## ✅ v1.4.0-এ ইন্টিগ্রেশন সম্পন্ন (implemented)
 
 - `@capacitor-trancee/nearby-connections@0.2.6` ইনস্টল্ড; Gradle sync-এ `:capacitor-trancee-nearby-connections` রেজিস্টার্ড ✓
-- **Manifest:** প্লাগিন নিজে permission declare করে না (ফাঁকা AndroidManifest) — তাই আমরা ঘোষণা করেছি: `BLUETOOTH`/`BLUETOOTH_ADMIN` (≤SDK30), `BLUETOOTH_SCAN`(neverForLocation)/`ADVERTISE`/`CONNECT`, `NEARBY_WIFI_DEVICES`(neverForLocation), `ACCESS/CHANGE_WIFI_STATE`, `CHANGE_NETWORK_STATE` (location আগে থেকেই আছে)।
+- **Manifest (⚠️ শেখা):** প্লাগিন নিজে permission declare করে না (ফাঁকা AndroidManifest)। আমরা সরাসরি ম্যানিফেস্ট এডিট করেছিলাম, কিন্তু `configure:native` ম্যানিফেস্ট **টেমপ্লেট থেকে রিজেনারেট করে** (CI আর্টিফ্যাক্ট প্রোবে ধরা পড়ে) — এখন পারমিশনগুলো `scripts/configure-native.mjs` টেমপ্লেটে `features.nearby` গেটের নিচে জেনারেট হয়: `BLUETOOTH`/`BLUETOOTH_ADMIN` (≤SDK30), `BLUETOOTH_SCAN`(neverForLocation)/`ADVERTISE`/`CONNECT`, `NEARBY_WIFI_DEVICES`(neverForLocation), `ACCESS/CHANGE_WIFI_STATE`, `CHANGE_NETWORK_STATE` (location আগে থেকেই আছে)।
 - **capacitor.config.ts:** `NearbyConnections: { endpointName, serviceID: app.id }` — strategy runtime-এ initialize()-এ (UI থেকে star/cluster/pointToPoint বদলানো যায়)।
 - **ব্রিজ `NativeKit.nearby`:** ১৫টি মেথড + ১২ লিসেনার জেনেরিক addListener + base64-UTF8 হেল্পার (sendPayload স্বয়ংক্রিয় base64-এনকোড — payload চুক্তি যে base64 স্ট্রিং)। feature-gate: `features.nearby`।
 - **UI (www):** "📡 Nearby P2P" কার্ড → ফুল P2P Lab: permissions → initialize → advertise/discover টগল, discovered তালিকা (auth token + accept/reject কিংবা auto-accept), connected peer তালিকা (bandwidth quality সহ), ব্রডকাস্ট চ্যাট, ফাইল পিকার → 262,143-বাইট chunk (3-এর গুণিতক; JSON/base64 নিরাপদ, 1 MiB সীমার অনেক নিচে) প্রোটোকল: fmeta/fchunk/fend/fcancel + nick/chat, প্রোগ্রেস বার, প্রাপ্ত ফাইল `Data/nativekit-lab/received/`-এ সেভ, cancel সমর্থন, Reset।
 - পরীক্ষা: ৭৯ টেস্ট পাস; config schema + validate সবুজ।
 - সতর্কতা: GMS লাগবে (Play Services সহ ডিভাইস); strategy দুই পক্ষে মিলতে হবে; strategy বদলাতে Reset → Start।
+
+
+**শিপড:** v1.4.0-testlab (vCode 15, commit 1c25687) — release 375841096; সব প্রোব প্রিন্ট `ALL-MANIFEST-OK`।
