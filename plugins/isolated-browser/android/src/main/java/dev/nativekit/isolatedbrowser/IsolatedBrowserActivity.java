@@ -38,6 +38,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.webkit.JavaScriptReplyProxy;
 import androidx.webkit.WebMessageCompat;
@@ -196,18 +197,18 @@ public final class IsolatedBrowserActivity extends Activity {
         decorView.setOnHierarchyChangeListener(new ViewGroup.OnHierarchyChangeListener() {
             @Override public void onChildViewAdded(View parent, View child) {
                 if (!decorWatcherArmed || child == decorView) return;
-                setImmersive(true);
+                applyImmersive(true);
             }
             @Override public void onChildViewRemoved(View parent, View child) {
                 if (!decorWatcherArmed) return;
-                setImmersive(false);
+                applyImmersive(false);
                 applySystemBars(getIntent().getStringExtra(EXTRA_COLOR_SCHEME));
             }
         });
         decorView.post(() -> decorWatcherArmed = true);
     }
 
-    private void setImmersive(boolean active) {
+    private void applyImmersive(boolean active) {
         if (immersiveActive == active) return;
         immersiveActive = active;
         WindowInsetsControllerCompat ic = new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
