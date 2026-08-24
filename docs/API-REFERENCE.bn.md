@@ -989,10 +989,10 @@ await B.setMethodPermission(appId, 'camera.getPhoto', null); // inherit
 |---|---|
 | `getPolicy(appId)` | current normalized policy |
 | `setEnabled(appId, enabled)` | master switch |
-| `setCapabilityDecision(appId, capability, decision)` | `ask|allow|block` |
-| `setMethodDecision(appId, method, decision)` | `inherit|ask|allow|block` |
+| `setCapabilityDecision(appId, capability, decision)` | `ask\|allow\|block` |
+| `setMethodDecision(appId, method, decision)` | `inherit\|ask\|allow\|block` |
 | `setCapability(appId, capability, boolean)` | compatibility allow/block |
-| `setMethodPermission(appId, method, boolean|null)` | compatibility allow/block/inherit |
+| `setMethodPermission(appId, method, boolean\|null)` | compatibility allow/block/inherit |
 | `setAllowedHosts(appId, hosts)` | network/browser policy; running sessions restart/stop |
 
 Revoke শুধু future call বদলায় না: matching pending call cancel, subscription remove এবং owned background location/notification/alarm state release চেষ্টা হয়। Cleanup ব্যর্থ হলে method reject করে; silently success নয়।
@@ -1316,7 +1316,7 @@ Measurement-এর সময় local package দুটি `node_modules/@nativekit
 ### Lifecycle
 | কল | অর্থ |
 |---|---|
-| `initialize({endpointName?, serviceID?, strategy?, lowPower?, autoConnect?, payload?})` | Nearby চালু; strategy: `'star'|'cluster'|'pointToPoint'` — **দুই পক্ষে মিলা আবশ্যক** |
+| `initialize({endpointName?, serviceID?, strategy?, lowPower?, autoConnect?, payload?})` | Nearby চালু; strategy: `'star'\|'cluster'\|'pointToPoint'` — **দুই পক্ষে মিলা আবশ্যক** |
 | `reset()` | সব কিছু থামিয়ে reset |
 | `status()` | `{isAdvertising, isDiscovering}` — UI reconcile-এ ব্যবহার করুন (নিয়ম: UI ফ্ল্যাগকে source-of-truth নয়) |
 
