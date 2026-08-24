@@ -370,13 +370,29 @@ function hexToRgba(hex, alpha) {
   }
   function clearProgress(id) { const el = overlay && overlay.querySelector(`[data-pgid="${id}"]`); el && el.remove(); }
 
+  function friendlyErr(raw) {
+    if (/8001|ALREADY_ADVERTISING/i.test(raw)) return 'ℹ️ ইতিমধ্যেই advertise চলছে (native state sync ✓)';
+    if (/8002|ALREADY_DISCOVERING/i.test(raw)) return 'ℹ️ ইতিমধ্যেই discovery চলছে (native state sync ✓)';
+    if (/8034|MISSING_PERMISSION/i.test(raw)) return '⛔ Location পারমিশন নেই — ⚙️ Settings → Location → Allowed করুন';
+    if (/8003|ALREADY_CONNECTED/i.test(raw)) return 'ℹ️ ওই peer-এর সাথে ইতিমধ্যে সংযোগ আছে';
+    if (/8047|MISSING_FEATURE/i.test(raw)) return '⛔ ডিভাইসে Wi-Fi/Bluetooth ফিচার নেই';
+    return null;
+  }
+
   async function api(promise, okLog) {
     try {
       const r = await promise;
       if (okLog) sysLog(okLog);
       return r;
     } catch (e) {
-      sysLog(`⚠️ ${esc(e && e.message ? e.message : e)}`);
+      const raw = (e && e.message) ? String(e.message) : String(e);
+      const f = friendlyErr(raw);
+      if (f) {
+        sysLog(f);
+        if (/8001|8002|8003|ALREADY/i.test(raw)) return { already: true };
+      } else {
+        sysLog(`⚠️ ${esc(raw)}`);
+      }
       throw e;
     }
   }
@@ -384,7 +400,7 @@ function hexToRgba(hex, alpha) {
   async function sendJSON(msg, endpointID) {
     const nkc = window.NativeKit.nearby;
     const ids = endpointID ? { endpointID } : { endpointIDs: [...peers.keys()] };
-    if (!ids.endpointID && !ids.endpointIDs.length) throw new Error('কোনো peer সংযুক্ত নেই');
+    if (!ids.endpointID && !ids.endpointIDs.length) throw new Error('এখনো কোনো peer সংযুক্ত নেই — আগে 🔍 Discover চালিয়ে একজনের সাথে 🔗 Connect করুন।');
     return nkc.sendPayload({ ...ids, payload: JSON.stringify(msg) });
   }
 
@@ -524,17 +540,44 @@ function hexToRgba(hex, alpha) {
   async function bootNearby() {
     if (booted) return;
     const nkc = window.NativeKit.nearby;
-    sysLog('⏳ permissions চেক হচ্ছে…');
-    const perms = await api(nkc.requestPermissions(), null).catch(() => null);
-    if (perms) {
-      const missing = Object.entries(perms).filter(([, v]) => v !== 'granted').map(([k]) => k);
-      if (missing.length) sysLog(`⚠️ missing: ${missing.join(', ')} — settings থেকে দিন`);
-      else sysLog('✅ সব permission granted');
+    sysLog('⏳ পারমিশন চেক হচ্ছে…');
+    let perms = await api(nkc.requestPermissions(), null).catch(() => null);
+    let missing = perms ? Object.entries(perms).filter(([, v]) => v !== 'granted').map(([k]) => k) : ['?'];
+    // 8034 fix: Location ছাড়া প্লাগিন advertise/discovery ঠুকে দেয় — আমাদের Geolocation ফ্লো দিয়ে রিট্রাই
+    if (missing.some((k) => k === 'location' || k === 'locationCoarse')) {
+      try {
+        sysLog('📍 Location পারমিশন জিজ্ঞেস করা হচ্ছে (Geolocation ফ্লো)…');
+        const g = await window.NativeKit.permissions.requestLocation();
+        sysLog(`📍 ফল: ${esc(JSON.stringify(g))}`);
+        perms = await nkc.requestPermissions(['location', 'locationCoarse']);
+        missing = Object.entries(perms).filter(([, v]) => v !== 'granted').map(([k]) => k);
+      } catch (e) { sysLog(`⚠️ ${esc(e.message || e)}`); }
     }
-    await api(nkc.initialize({ endpointName: nick, serviceID: undefined, strategy: $('#nk-strategy').value }), '✅ initialize OK (strategy: ' + $('#nk-strategy').value + ')');
+    if (missing.length) {
+      sysLog(`⛔ বাকি: <b>${missing.join(', ')}</b>`);
+      sysLog('👉 Android দুইবার deny করলে আর জিজ্ঞেস করে না — উপরের <b>⚙️</b> বাটনে Settings খুলে Location / Nearby devices / Bluetooth দিন, তারপর আবার ▶ Start');
+    } else sysLog('✅ সব permission granted');
+    await api(nkc.initialize({ endpointName: nick, strategy: $('#nk-strategy').value }), '✅ initialize OK (strategy: ' + $('#nk-strategy').value + ')');
     await wireListeners();
     booted = true;
     refreshStatus();
+    await syncNativeStatus();
+  }
+
+  async function syncNativeStatus() {
+    // overlay reopen / আবার Start — native state-এর সাথে UI flag সিঙ্ক (8001/8002-এর কারণ)
+    try {
+      const st = await window.NativeKit.nearby.status();
+      if (typeof st.isAdvertising === 'boolean' && st.isAdvertising !== advertising) {
+        advertising = st.isAdvertising;
+        const b = overlay.querySelector('[data-nk="adv"]'); if (b) b.textContent = '📢 Advertise: ' + (advertising ? 'ON' : 'OFF');
+      }
+      if (typeof st.isDiscovering === 'boolean' && st.isDiscovering !== discovering) {
+        discovering = st.isDiscovering;
+        const b = overlay.querySelector('[data-nk="disc"]'); if (b) b.textContent = '🔍 Discover: ' + (discovering ? 'ON' : 'OFF');
+      }
+      refreshStatus();
+    } catch { /* pre-init native */ }
   }
 
   function build() {
@@ -544,6 +587,7 @@ function hexToRgba(hex, alpha) {
       '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(2,8,20,.8)">',
       '  <span style="font-size:22px">📡</span><b style="flex:1;font-size:16px">Nearby P2P Lab</b>',
       '  <button data-nk="reset" style="background:#334155;color:#fff;border:0;border-radius:8px;padding:7px 10px;font-weight:700">🔄 Reset</button>',
+      '  <button data-nk="settings" style="background:#475569;color:#fff;border:0;border-radius:8px;padding:7px 10px;font-weight:700">⚙️</button>',
       '  <button data-nk="close" style="background:#ef4444;color:#fff;border:0;border-radius:8px;padding:7px 12px;font-weight:800">✖</button>',
       '</div>',
       '<div style="flex:1;min-height:0;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:10px">',
@@ -599,6 +643,11 @@ function hexToRgba(hex, alpha) {
       try {
         if (a === 'close') { overlay.remove(); return; }
         if (a === 'boot') { await bootNearby(); return; }
+        if (a === 'settings') {
+          sysLog('⚙️ App Settings খুলছি — Location / Nearby devices / Bluetooth allow করে ফিরে আসুন');
+          await window.NativeKit.permissions.openAppSettings().catch((e) => sysLog(`⚠️ ${esc(e.message || e)}`));
+          return;
+        }
         if (!booted && a !== 'reset') { sysLog('⚠️ আগে ▶ Start চাপ'); return; }
         if (a === 'reset') {
           await api(nkc.stopAdvertising().catch(() => {}), null);
