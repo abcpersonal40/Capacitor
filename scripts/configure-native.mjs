@@ -75,10 +75,29 @@ function androidManifest() {
   const locationFeature = (config.features.location || config.features.backgroundLocation)
     ? '\n    <uses-feature android:name="android.hardware.location.gps" android:required="false" />'
     : '';
+  // Nearby Connections (feature: nearby) — the @capacitor-trancee/nearby-connections plugin
+  // ships an EMPTY manifest, so every BT/Wi-Fi transport permission has to be declared here.
+  // neverForLocation on SCAN + NEARBY_WIFI_DEVICES keeps us out of the location-prompt path
+  // on Android 12+ (location itself is still declared for older devices via features.location).
+  const nearbyPermissions = config.features.nearby
+    ? '\n    <!-- Nearby Connections: Bluetooth + Wi-Fi transports (plugin manifest is empty; we declare everything) -->'
+      + '\n    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />'
+      + '\n    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />'
+      + '\n    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />'
+      + '\n    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />'
+      + '\n    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />'
+      + '\n    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation" />'
+      + '\n    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />'
+      + '\n    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />'
+      + '\n    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />'
+      + '\n    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />'
+      + '\n    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />'
+      + '\n    <uses-feature android:name="android.hardware.wifi.aware" android:required="false" />'
+    : '';
 
   return `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-${permissions}${legacyStorage}${cameraFeature}${locationFeature}
+${permissions}${legacyStorage}${nearbyPermissions}${cameraFeature}${locationFeature}
 
     <application
         android:allowBackup="false"
@@ -220,6 +239,13 @@ function infoPlist() {
   }
   if (config.features.backgroundRunner) {
     entries.set('BGTaskSchedulerPermittedIdentifiers', [config.backgroundRunner.taskIdentifier]);
+  }
+  // Nearby Connections (feature: nearby) — the plugin's iOS implementation (Google's
+  // Swift port) needs Bluetooth + Local Network usage strings or CoreBluetooth/NW
+  // refuse to start (README declares both as required).
+  if (config.features.nearby) {
+    entries.set('NSBluetoothAlwaysUsageDescription', 'কাছের ডিভাইসের সাথে অফলাইন সংযোগ ও ফাইল/চ্যাট আদান-প্রদান করতে Bluetooth প্রয়োজন।');
+    entries.set('NSLocalNetworkUsageDescription', 'একই লোকাল নেটওয়ার্কের ডিভাইসের সাথে ছবি/ফাইল/চ্যাট পাঠাতে লোকাল নেটওয়ার্ক অ্যাক্সেস প্রয়োজন।');
   }
 
   const modes = [];

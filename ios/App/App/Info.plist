@@ -59,6 +59,10 @@
 	<array>
 		<string>dev.nativekit.shell.background</string>
 	</array>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>কাছের ডিভাইসের সাথে অফলাইন সংযোগ ও ফাইল/চ্যাট আদান-প্রদান করতে Bluetooth প্রয়োজন।</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>একই লোকাল নেটওয়ার্কের ডিভাইসের সাথে ছবি/ফাইল/চ্যাট পাঠাতে লোকাল নেটওয়ার্ক অ্যাক্সেস প্রয়োজন।</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
