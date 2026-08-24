@@ -12,6 +12,7 @@ import { Share } from '@capacitor/share';
 import { Network } from '@capacitor/network';
 import { BackgroundRunner } from '@capacitor/background-runner';
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
+import { NearbyConnections } from '@capacitor-trancee/nearby-connections';
 import { NativeKitCustom } from '@nativekit/custom-native';
 import { InAppBrowser } from '@capgo/capacitor-inappbrowser';
 import { createAppBrowser } from './app-browser';
@@ -80,6 +81,21 @@ function feature(name: string): void {
 function randomId(prefix = 'nk'): string {
   const value = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return `${prefix}-${value}`;
+}
+
+function encodeBase64Utf8(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  return btoa(binary);
+}
+
+function decodeBase64Utf8(base64: string): string {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
 }
 
 function assertNetworkUrl(input: string): URL {
@@ -556,6 +572,46 @@ const NativeKit: any = {
     onRegistrationError: (callback: (error: any) => void): Promise<Remove> => { feature('pushNotificationsReady'); return PushNotifications.addListener('registrationError', callback); },
     onReceived: (callback: (notification: any) => void): Promise<Remove> => { feature('pushNotificationsReady'); return PushNotifications.addListener('pushNotificationReceived', callback); },
     onAction: (callback: (action: any) => void): Promise<Remove> => { feature('pushNotificationsReady'); return PushNotifications.addListener('pushNotificationActionPerformed', callback); },
+  },
+  nearby: {
+    // Largest BYTES payload Google accepts: ConnectionsClient.MAX_BYTES_DATA_SIZE (1,047,552).
+    MAX_PAYLOAD_BYTES: 1047552,
+    // Send/download the payload as a base64 string across the bridge (plugin contract);
+    // these helpers keep that invisible to callers (send plain text/JSON, receive the same).
+    encodeBase64Utf8,
+    decodeBase64Utf8,
+    // Lifecycle
+    initialize: (options: Record<string, any> = {}) => { feature('nearby'); return NearbyConnections.initialize(options); },
+    reset: () => { feature('nearby'); return NearbyConnections.reset(); },
+    startAdvertising: (options: Record<string, any> = {}) => { feature('nearby'); return NearbyConnections.startAdvertising(options); },
+    stopAdvertising: () => { feature('nearby'); return NearbyConnections.stopAdvertising(); },
+    startDiscovery: (options: Record<string, any> = {}) => { feature('nearby'); return NearbyConnections.startDiscovery(options); },
+    stopDiscovery: () => { feature('nearby'); return NearbyConnections.stopDiscovery(); },
+    // Connection management
+    requestConnection: (options: { endpointID: string; endpointName?: string }) => { feature('nearby'); return NearbyConnections.requestConnection(options); },
+    acceptConnection: (options: { endpointID: string }) => { feature('nearby'); return NearbyConnections.acceptConnection(options); },
+    rejectConnection: (options: { endpointID: string }) => { feature('nearby'); return NearbyConnections.rejectConnection(options); },
+    disconnect: (options: { endpointID: string }) => { feature('nearby'); return NearbyConnections.disconnect(options); },
+    // Payloads (BYTES only upstream; payload must be base64 -> encode unless caller opted out)
+    sendPayload: (options: { endpointID?: string; endpointIDs?: string[]; payload: string; alreadyBase64?: boolean }) => {
+      feature('nearby');
+      const { alreadyBase64, ...rest } = options;
+      return NearbyConnections.sendPayload({ ...rest, payload: alreadyBase64 ? options.payload : encodeBase64Utf8(options.payload) });
+    },
+    cancelPayload: (options: { payloadID: number }) => { feature('nearby'); return NearbyConnections.cancelPayload(options); },
+    status: () => { feature('nearby'); return NearbyConnections.status(); },
+    // Permissions (all groups when not narrowed)
+    checkPermissions: () => { feature('nearby'); return NearbyConnections.checkPermissions(); },
+    requestPermissions: (groups?: Array<'wifiNearby' | 'wifiState' | 'bluetoothNearby' | 'bluetoothLegacy' | 'location' | 'locationCoarse'>) => {
+      feature('nearby');
+      const all: Array<'wifiNearby' | 'wifiState' | 'bluetoothNearby' | 'bluetoothLegacy' | 'location' | 'locationCoarse'> = ['wifiNearby', 'wifiState', 'bluetoothNearby', 'bluetoothLegacy', 'location', 'locationCoarse'];
+      return NearbyConnections.requestPermissions({ permissions: groups && groups.length ? groups : all });
+    },
+    // All 12 listeners wired through one generic registration
+    addListener: (eventName: string, callback: (event: any) => void): Promise<Remove> => {
+      feature('nearby');
+      return (NearbyConnections as any).addListener(eventName, callback);
+    },
   },
   serviceWorker: {
     supported: !isNative && 'serviceWorker' in navigator,

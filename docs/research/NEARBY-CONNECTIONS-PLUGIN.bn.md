@@ -122,3 +122,15 @@ Google-এর **Nearby Connections API**-র Capacitor র‍্যাপার 
 
 ## পরের পদক্ষেপের সুপারিশ
 যদি অফলাইন P2P ফিচার চাই: `@capacitor-trancee/nearby-connections` অ্যাড → `capacitor.config.ts`-এ `NearbyConnections` (strategy `'star'`, serviceID = প্যাকেজ নেম) → AppShell scalpel-"নতুন capability: nearby" হুক + TestLab-এ পেয়ারিং ডেমো (autoConnect সহ)। GMS-নির্ভরতা ও স্ট্রিং-পেলোড সীমাবদ্ধতা সামনে রেখে।
+
+---
+
+## ✅ v1.4.0-এ ইন্টিগ্রেশন সম্পন্ন (implemented)
+
+- `@capacitor-trancee/nearby-connections@0.2.6` ইনস্টল্ড; Gradle sync-এ `:capacitor-trancee-nearby-connections` রেজিস্টার্ড ✓
+- **Manifest:** প্লাগিন নিজে permission declare করে না (ফাঁকা AndroidManifest) — তাই আমরা ঘোষণা করেছি: `BLUETOOTH`/`BLUETOOTH_ADMIN` (≤SDK30), `BLUETOOTH_SCAN`(neverForLocation)/`ADVERTISE`/`CONNECT`, `NEARBY_WIFI_DEVICES`(neverForLocation), `ACCESS/CHANGE_WIFI_STATE`, `CHANGE_NETWORK_STATE` (location আগে থেকেই আছে)।
+- **capacitor.config.ts:** `NearbyConnections: { endpointName, serviceID: app.id }` — strategy runtime-এ initialize()-এ (UI থেকে star/cluster/pointToPoint বদলানো যায়)।
+- **ব্রিজ `NativeKit.nearby`:** ১৫টি মেথড + ১২ লিসেনার জেনেরিক addListener + base64-UTF8 হেল্পার (sendPayload স্বয়ংক্রিয় base64-এনকোড — payload চুক্তি যে base64 স্ট্রিং)। feature-gate: `features.nearby`।
+- **UI (www):** "📡 Nearby P2P" কার্ড → ফুল P2P Lab: permissions → initialize → advertise/discover টগল, discovered তালিকা (auth token + accept/reject কিংবা auto-accept), connected peer তালিকা (bandwidth quality সহ), ব্রডকাস্ট চ্যাট, ফাইল পিকার → 262,143-বাইট chunk (3-এর গুণিতক; JSON/base64 নিরাপদ, 1 MiB সীমার অনেক নিচে) প্রোটোকল: fmeta/fchunk/fend/fcancel + nick/chat, প্রোগ্রেস বার, প্রাপ্ত ফাইল `Data/nativekit-lab/received/`-এ সেভ, cancel সমর্থন, Reset।
+- পরীক্ষা: ৭৯ টেস্ট পাস; config schema + validate সবুজ।
+- সতর্কতা: GMS লাগবে (Play Services সহ ডিভাইস); strategy দুই পক্ষে মিলতে হবে; strategy বদলাতে Reset → Start।

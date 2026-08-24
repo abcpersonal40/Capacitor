@@ -212,7 +212,8 @@
         "networkStatus",
         "nativeSSE",
         "appBrowser",
-        "inAppBrowser"
+        "inAppBrowser",
+        "nearby"
       ],
       "properties": {
         "camera": {
@@ -270,6 +271,11 @@
           "type": "boolean",
           "default": true,
           "description": "Preferences/ key-value storage bridge. The demo and most shells need it; turning it off makes NativeKit.preferences throw."
+        },
+        "nearby": {
+          "type": "boolean",
+          "default": false,
+          "description": "Offline device-to-device bridge (Nearby Connections: advertising/discovery/chat/file transfer). Disable to make NativeKit.nearby throw and to strip the P2P lab UI."
         }
       }
     },

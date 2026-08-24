@@ -69,6 +69,13 @@ const config: CapacitorConfig = {
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
+    NearbyConnections: {
+      endpointName: app.name,
+      // Best practice: serviceID must uniquely identify the app — use the package id.
+      serviceID: app.id,
+      // Strategy is set at runtime (initialize()) so the TestLab UI can switch
+      // star / cluster / pointToPoint on the fly.
+    },
   },
 };
 

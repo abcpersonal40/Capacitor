@@ -5,6 +5,9 @@ project(':capacitor-android').projectDir = new File('../node_modules/@capacitor/
 include ':capacitor-community-sqlite'
 project(':capacitor-community-sqlite').projectDir = new File('../node_modules/@capacitor-community/sqlite/android')
 
+include ':capacitor-trancee-nearby-connections'
+project(':capacitor-trancee-nearby-connections').projectDir = new File('../node_modules/@capacitor-trancee/nearby-connections/android')
+
 include ':capacitor-app'
 project(':capacitor-app').projectDir = new File('../node_modules/@capacitor/app/android')
 
@@ -26,6 +29,9 @@ project(':capacitor-geolocation').projectDir = new File('../node_modules/@capaci
 include ':capacitor-haptics'
 project(':capacitor-haptics').projectDir = new File('../node_modules/@capacitor/haptics/android')
 
+include ':capacitor-keyboard'
+project(':capacitor-keyboard').projectDir = new File('../node_modules/@capacitor/keyboard/android')
+
 include ':capacitor-local-notifications'
 project(':capacitor-local-notifications').projectDir = new File('../node_modules/@capacitor/local-notifications/android')
 
@@ -41,11 +47,11 @@ project(':capacitor-push-notifications').projectDir = new File('../node_modules/
 include ':capacitor-share'
 project(':capacitor-share').projectDir = new File('../node_modules/@capacitor/share/android')
 
+include ':capgo-capacitor-inappbrowser'
+project(':capgo-capacitor-inappbrowser').projectDir = new File('../node_modules/@capgo/capacitor-inappbrowser/android')
+
 include ':nativekit-custom-native'
 project(':nativekit-custom-native').projectDir = new File('../plugins/custom-native/android')
 
 include ':nativekit-isolated-browser'
 project(':nativekit-isolated-browser').projectDir = new File('../plugins/isolated-browser/android')
-
-include ':capgo-capacitor-inappbrowser'
-project(':capgo-capacitor-inappbrowser').projectDir = new File('../node_modules/@capgo/capacitor-inappbrowser/android')

@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "@capacitor-community/sqlite": "8.1.1",
+    "@capacitor-trancee/nearby-connections": "0.2.6",
     "@capacitor/android": "8.5.0",
     "@capacitor/app": "8.1.1",
     "@capacitor/background-runner": "3.0.0",
