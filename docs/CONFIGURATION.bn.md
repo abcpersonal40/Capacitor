@@ -73,6 +73,9 @@ Hostname entry exact (`api.example.com`) অথবা one-level/descendant suffi
 | `sharing` | native share sheet |
 | `networkStatus` | current network/listener |
 | `nativeSSE` | native SSE/text/NDJSON stream |
+| `inAppBrowser` | external URL খোলার Capgo In-App Browser plugin surface |
+| `preferences` | সাধারণ key-value স্টোর |
+| `nearby` | অফলাইন Nearby Connections P2P (বিস্তারিত নিচে) |
 
 Safe defaults policy-sensitive `advancedAlarms` ও `backgroundLocation` off রাখে; feature implementation project-এ আছে এবং justified app-এ config দিয়ে enable করা যায়।
 
@@ -194,8 +197,8 @@ Validator schema ছাড়াও অন্তত এসব সম্পর্ক
 
 ## `features.nearby` (24 আগস্ট 2026 সংযোজন)
 
-- ডিফল্ট: `false` — `true` দিলে **Nearby Connections P2P** সক্রিয় হয় (TestLab-এ "📡 Nearby P2P" কার্ড)।
+- schema ডিফল্ট: `false` (বর্তমান TestLab কনফিগে `true`) — `true` দিলে **Nearby Connections P2P** সক্রিয় হয় (TestLab-এ "📡 Nearby P2P" কার্ড)।
 - কনফিগ-ফ্লো: `capacitor.config.ts`-এ `plugins.NearbyConnections = { endpointName: app.name, serviceID: app.id }` অটো-জেনারেট; strategy runtime-এ `NativeKit.nearby.initialize({ strategy })`-তে যায় (UI-তে বদলানো যায় — পরিবর্তনে Reset → Start)।
-- **Android নিয়ম:** প্লাগিনটা ফাঁকা manifest শিপ করে — `configure-native.mjs` টেমপ্লেটেই BLUETOOTH(_ADMIN)/SCAN(neverForLocation)/ADVERTISE/CONNECT, NEARBY_WIFI_DEVICES(neverForLocation), ACCESS/CHANGE_WIFI_STATE, CHANGE_NETWORK_STATE জেনারেট হয় (শিক্ষা: ম্যানিফেস্ট হাতে এডিট হারায় — টেমপ্লেটেই করুন)।
-- **iOS:** `NSBluetoothAlwaysUsageDescription` + `NSLocalNetworkUsageDescription` প্লিস্টে বসে।
+- **Android নিয়ম:** প্লাগিনটা ফাঁকা manifest শিপ করে — `configure-native.mjs` টেমপ্লেটেই BLUETOOTH(_ADMIN)/SCAN(neverForLocation)/ADVERTISE/CONNECT, NEARBY_WIFI_DEVICES(neverForLocation), ACCESS/CHANGE_WIFI_STATE, CHANGE_NETWORK_STATE জেনারেট হয়; BLUETOOTH/BLUETOOTH_ADMIN `android:maxSdkVersion="30"`-সীমিত, আর bluetooth/bluetooth_le/wifi.aware-এর `uses-feature … required="false"` বসে — যাতে হার্ডওয়্যার-বিহীন ডিভাইসেও ইনস্টল চলে (শিক্ষা: ম্যানিফেস্ট হাতে এডিট হারায় — টেমপ্লেটেই করুন)।
+- **iOS:** `NSBluetoothAlwaysUsageDescription` + `NSLocalNetworkUsageDescription` প্লিস্টে বসে (দুটোই টেমপ্লেটের নির্দিষ্ট বাংলা usage-স্ট্রিং — `permissions.*` ম্যাপের আলাদা কী নয়)।
 - **GMS আবশ্যক** — Play Services-বিহীন ডিভাইসে `initialize` ব্যর্থ হবে; অ্যাপের বাকি সব ফিচার তখনও ঠিকঠাক চলে।

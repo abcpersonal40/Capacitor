@@ -13,7 +13,7 @@ Google-এর **Nearby Connections API**-র Capacitor র‍্যাপার 
 
 ### পূর্ণ API সারফেস
 
-** মেথডস (১৫টি):**
+**মেথডস (১৫টি):**
 
 | মেথড | কাজ |
 |---|---|
@@ -55,7 +55,7 @@ Google-এর **Nearby Connections API**-র Capacitor র‍্যাপার 
 
 **Status enum:** `OK`, `ERROR`, `ALREADY_ADVERTISING`, `ALREADY_DISCOVERING`, `ALREADY_CONNECTED_TO_ENDPOINT`, `ALREADY_HAVE_ACTIVE_STRATEGY`, `CONNECTION_REJECTED`, `NOT_CONNECTED_TO_ENDPOINT`, `RADIO_ERROR`, `OUT_OF_ORDER_API_CALL`, `ENDPOINT_UNKNOWN`, `ENDPOINT_IO_ERROR`, `PAYLOAD_IO_ERROR`, `PAYLOAD_UNKNOWN`, `AUTH_ERROR`, `ALREADY_IN_USE` …
 
-**Android native deps (variables.gradle-এ ওভাররাইড করা যায়):** `play-services-nearby:19.3.0`, `play-services-location:21.3.0`, `protolite-well-known-types:18.0.0`
+**Android native dep (v0.2.6-র build.gradle-এ ext হিসেবে; `rootProject` property দিয়ে ওভাররাইড-যোগ্য):** `play-services-nearby:19.3.0` (`playServicesNearbyVersion`) — এই সংস্করণে অন্য কোনো GMS ডিপেন্ডেন্সি নেই।
 
 ### গুরুত্বপূর্ণ সতর্কতা
 1. **Payload টাইপ স্ট্রিং** — বাইনারি ফাইল পাঠাতে base64-এ এনকোড করে পাঠাতে হবে (প্লাগিন `payload: string` এক্সপেক্ট করে); বড় ফাইলে এটা ব্যয়বহুল।
@@ -80,9 +80,9 @@ Google-এর **Nearby Connections API**-র Capacitor র‍্যাপার 
 ## পার্ট ২: আমাদের প্রজেক্টের প্লাগিন API-অ্যাকুরেসি অডিট
 
 ### ইনভেন্টরি (package.json, Capacitor 8.5.0)
-`@capacitor-community/sqlite@8.1.1`, `@capacitor/app@8.1.1`, `background-runner@3.0.0`, `camera@8.2.2`, `file-transfer@2.0.5`, `filesystem@8.1.2`, `geolocation@8.2.2`, `haptics@8.0.2`, `keyboard@8.0.5`, `local-notifications@8.3.0`, `network@8.0.1`, `preferences@8.0.1`, `push-notifications@8.1.2`, `share@8.0.1`, `@capgo/capacitor-inappbrowser@8.15.2` + লোকাল `plugins/custom-native` (alarms/secure-storage/bg-location), `plugins/isolated-browser`।
+`@capacitor-community/sqlite@8.1.1`, `@capacitor/app@8.1.1`, `background-runner@3.0.0`, `camera@8.2.2`, `file-transfer@2.0.5`, `filesystem@8.1.2`, `geolocation@8.2.2`, `haptics@8.0.2`, `keyboard@8.0.5`, `local-notifications@8.3.0`, `network@8.0.1`, `preferences@8.0.1`, `push-notifications@8.1.2`, `share@8.0.1`, `@capgo/capacitor-inappbrowser@8.15.2` + লোকাল `plugins/custom-native` (alarms/secure-storage/bg-location), `plugins/isolated-browser`। *(তালিকা অডিট-সময়ের, ২৪ আগস্ট; পরে `nearby-connections@0.2.6` যোগ হয়েছে)*
 
-**`@capacitor-trancee/nearby-connections` আমাদের প্রজেক্টে নেই** — এটা ছিল বিশুদ্ধ রিসার্চ; ইন্টিগ্রেট করতে হলে পৃথক কাজ।
+> ⚠️ **টাইমস্ট্যাম্প নোট:** নিচের অডিটটি তৎকালীন স্টকে করেছিল — তখন এই প্লাগিন প্রজেক্টে **ছিল না**। পরবর্তীতে **v1.4.0-এ `@capacitor-trancee/nearby-connections@0.2.6` ইন্টিগ্রেট হয়েছে** (নিচের "✅ v1.4.0" সেকশন দেখুন) — অর্থাৎ milestone পূর্ণ হয়ে গেছে।
 
 ### কল-বাই-কল যাচাই (bridge/nativekit.ts ↔ অফিসিয়াল ডকুমেন্টেশন)
 
@@ -120,8 +120,8 @@ Google-এর **Nearby Connections API**-র Capacitor র‍্যাপার 
 
 ---
 
-## পরের পদক্ষেপের সুপারিশ
-যদি অফলাইন P2P ফিচার চাই: `@capacitor-trancee/nearby-connections` অ্যাড → `capacitor.config.ts`-এ `NearbyConnections` (strategy `'star'`, serviceID = প্যাকেজ নেম) → AppShell scalpel-"নতুন capability: nearby" হুক + TestLab-এ পেয়ারিং ডেমো (autoConnect সহ)। GMS-নির্ভরতা ও স্ট্রিং-পেলোড সীমাবদ্ধতা সামনে রেখে।
+## পরের পদক্ষেপের সুপারিশ — ✅ **সম্পন্ন হয়েছে (v1.4.x, নিচে)**
+~~যদি অফলাইন P2P ফিচার চাই:~~ `@capacitor-trancee/nearby-connections` অ্যাড → `capacitor.config.ts`-এ `NearbyConnections` (strategy `'star'`, serviceID = প্যাকেজ নেম) → AppShell scalpel-"নতুন capability: nearby" হুক + TestLab-এ পেয়ারিং ডেমো (autoConnect সহ)। GMS-নির্ভরতা ও স্ট্রিং-পেলোড সীমাবদ্ধতা সামনে রেখে।
 
 ---
 

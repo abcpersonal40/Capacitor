@@ -37,14 +37,14 @@
 
 **B. ফরমাল Tool Registry (risk-classified)**
 - প্রতিটি `NativeKit.*` মেথডকে **JSON Schema tool** আকারে অটো-জেনারেট করা (name/description/params/returns) — তাহলে যেকোনো LLM-এ সরাসরি `tools[]` হিসেবে দেওয়া যায়; কোড-ভিত্তিক টুল-ডিসকভারি = agent-harness-এর স্ট্যান্ডার্ড ([harness guide](https://medium.com/@tort_mario/ai-agent-best-practices-production-ready-harness-engineering-2026-guide-c1236d713fac))।
-- প্রতিটি টুলে **risk class:** `read` (ক্যামেরা-রিড, লোকেশন), `write` (filesystem, sqlite), `external-effect` (share, browser), `expensive` (background GPS, LLM inference), `destructive` (deleteDatabase, cancelFolder) — কনসেন্ট-ম্যাট্রিক্স এ ক্লাস অনুযায়ী ask/allow/block। আমাদের `permissionPrompts` কনফিগটা এই ম্যাট্রিক্সের এলাকা প্রসারণ মাত্র।
+- প্রতিটি টুলে **risk class:** `read` (ক্যামেরা-রিড, লোকেশন), `write` (filesystem, sqlite), `external-effect` (share, browser), `expensive` (background GPS, LLM inference), `destructive` (deleteDatabase, cancelFolder) — কনসেন্ট-ম্যাট্রিক্সে ক্লাস অনুযায়ী ask/allow/block। আমাদের `permissionPrompts` কনফিগটা এই ম্যাট্রিক্সের এলাকা প্রসারণ মাত্র।
 
 **C. এজেন্ট রানটাইম লুপ (বাজেট + স্টপ-কন্ডিশন)**
 - `agent.loop(goal, tools, budget)` JS-API: turn cap, token/cost cap, tool-call cap, timeout, compaction trigger — বাজেট-ট্র্যাকিং ও স্টপ-কন্ডিশন ছাড়া কোনো প্রোডাকশন হারনেস নেই।
 - **background-runner** (বিদ্যমান)-এ long-task orchestration; প্রতিটি রানের audit লগে tool-call choreography সংরক্ষণ।
 
 **D. মেমরি লেয়ার (vector + per-agent)**
-- Embeddings → KNN — `sqlite-vec`/vip — আমরা [`@capacitor-community/sqlite`](https://github.com/Cap-go/capacitor-llm) ব্যবহার করি, `sqlite-vec` এক্সটেনশন একই অথরের কমিউনিটি প্যাকেজে পাওয়া যায়; না পেলে JS-side brute-force KNN (১০ হাজার রেকর্ড পর্যন্ত যথেষ্ট)।
+- Embeddings → KNN — আমরা [`@capacitor-community/sqlite`](https://github.com/capacitor-community/sqlite) ব্যবহার করি, `sqlite-vec` এক্সটেনশন একই অথরের কমিউনিটি প্যাকেজে পাওয়া যায়; না পেলে JS-side brute-force KNN (১০ হাজার রেকর্ড পর্যন্ত যথেষ্ট)।
 - প্রতিটি মিনি-অ্যাপের নিজস্ব মেমরি নেমস্পেস — টোকেন-বাউন্ড স্টোরেজের উপর memory namespace: এটাই "agent ID = first-class principal" প্যাটার্ন ([WorkOS](https://workos.com/blog/ai-agent-credentials))।
 
 ### 🟡 P1 — নিম্ন-লাগত বড়-প্রভাব মাল্টিমোডাল ইনপুট/আউটপুট
@@ -58,11 +58,11 @@
 **H. MCP ব্রিজ (`features.mcp`):**
 - **MCP server হিসেবে অ্যাপ:** in-app HTTP/SSE এন্ডপয়েন্ট (native SSE ইঞ্জিন আছে) যাতে Desktop/IDE এজেন্ট (Claude Code, Cursor) ফোনের টুলগুলো আবিষ্কার+কল করতে পারে — [mobile-mcp](https://github.com/mobile-next/mobile-mcp) একই মডেল (ADB/Accessibility ব্যবহার করে; আমরা সরাসরি ভেতর থেকে — আরও নিরাপদ)।
 - **MCP client হিসেবে:** বাইরের MCP সার্ভারের টুল আমারি এজেন্টে যুক্ত করা।
-- ১২৫-ঘর স্ট্যাটাসকোড: Tool-name/description-ই LLM-এর রাউটিং ডেটা — রেজিস্ট্রি-ফর্মালাইজ করলে (B) এটা অটোমেটিক।
+- নোট: tool-এর name/description-ই LLM-এর রাউটিং ডেটা — রেজিস্ট্রি-ফর্মালাইজ করলে (B) এটা অটোমেটিক।
 
-**I. মিনি-অ্যাপ "এজেন্ট" টাইপ:** ডিক্লেয়ারেশন-লেভেলে `type: 'agent'` মিনি-অ্যাপ যার defaultCapabilities ছোট (read-only বেছে নেওয়া) + LLM brain-এর অ্যাক্সেস + লুপ অ্যাক্সেস — তাহলে "installed agents" কোনো অ্যাপের অংশ, সাইড-চ্যানেল নয়। মার্কেটপ্লেস-বাক্যাংশ এখানে বসে।
+**I. মিনি-অ্যাপ "এজেন্ট" টাইপ:** ডিক্লেয়ারেশন-লেভেলে `type: 'agent'` মিনি-অ্যাপ যার defaultCapabilities ছোট (read-only বেছে নেওয়া) + LLM brain-এর অ্যাক্সেস + লুপ অ্যাক্সেস — তাহলে "installed agents" কোনো অ্যাপের অংশ, সাইড-চ্যানেল নয়। ভবিষ্যৎ মার্কেটপ্লেস-ধাঁচ এখানেই বসে।
 
-**J. অফলাইন মাল্টি-ডিভাইস এজেন্ট মেশ:** আমরা **Nearby P2P ফুল ইন্টিগ্রেশন** কালকেই শিপ করেছি — দুটো ফোনের এজেন্ট অফলাইনেই ইনফো/টাস্ক আদান-প্রদান করতে পারে (staging: এক ডিভাইসে LLM, আরেকটায় ভগ্নিমা/UI)। এই কম্বিনেশন বাজারে দুর্লভ।
+**J. অফলাইন মাল্টি-ডিভাইস এজেন্ট মেশ:** আমরা **Nearby P2P ফুল ইন্টিগ্রেশন** 2026-08-24-এই শিপ করেছি (v1.4.0 → v1.4.1) — দুটো ফোনের এজেন্ট অফলাইনেই ইনফো/টাস্ক আদান-প্রদান করতে পারে (staging: এক ডিভাইসে LLM, আরেকটায় শুধু UI)। এই কম্বিনেশন বাজারে দুর্লভ।
 
 **K. এজেন্ট UI অটোমেশন (mini-app DOM drive):** appBrowser-এ ডিক্লেয়ারিটিভ অটোমেশন API (query/fill/click) — তাহলে এজেন্ট কোনো মিনি-অ্যাপের UI নিজেই চালাতে পারে; sandboxed রেন্ডারারে এটা নিরাপদ, যেহেতু অ্যাকশনগুলো RPC বাউন্ডারি ভেতরে।
 

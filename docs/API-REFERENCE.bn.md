@@ -1,6 +1,6 @@
 # NativeKit পূর্ণ API রেফারেন্স — ওয়েব ডেভেলপার সংস্করণ
 
-> **সর্বশেষ source-audit:** 18 আগস্ট 2026 · সংশোধন: 24 আগস্ট 2026 (`NativeKit.nearby` যোগ)  
+> **সর্বশেষ source-audit:** 25 আগস্ট 2026 (সম্পূর্ণ নথি কোডের সঙ্গে re-verify) · সংশোধন: 24 আগস্ট 2026 (`NativeKit.nearby` যোগ)  
 > **Runtime:** trusted bridge `1.0.0`, installed-package façade `app-browser-1.1.0`  
 > **Pinned stack:** Capacitor `8.5.0` এবং `package.json`-এ থাকা plugin version-সমূহ
 
@@ -1292,6 +1292,8 @@ addEventListener('nativekitappbrowserpermissionrequest', async ({ detail }) => {
 
 18 আগস্ট 2026 checkout-এর measured storage (category-গুলিতে overlap আছে, তাই সরাসরি সব row যোগ করবেন না):
 
+**আপডেট (25 আগস্ট 2026):** `@capacitor-trancee/nearby-connections@0.2.6` যোগের পরে সরাসরি external plugin package ১৪→১৫; নিচের টেবিল ১৮ আগস্টের তারিখিক measurement হিসেবেই রক্ষিত।
+
 | Category | Measurement | ব্যাখ্যা |
 |---|---:|---|
 | Local plugin source `plugins/` | 253,435 logical bytes; 44 files; 354 KiB `du` | `custom-native` + `isolated-browser` |
@@ -1304,8 +1306,6 @@ Measurement-এর সময় local package দুটি `node_modules/@nativekit
 
 ## 39. Source-conformance status
 
-এই reference বর্তমান runtime façade, installed bootstrap allowlist, broker sanitizer/ownership/quota, local plugin declaration, generated TypeScript template এবং pinned dependency declaration মিলিয়ে লেখা। Generated declaration standalone TypeScript `ES2023,DOM` check পাস করে। Android/iOS OS behavior শেষ পর্যন্ত platform permission, entitlement, WebView/WebKit/provider version এবং store policy-এর অধীন—তাই JavaScript type correctness native device acceptance test-এর বিকল্প নয়।
-ptance test-এর বিকল্প নয়।
 
 ---
 

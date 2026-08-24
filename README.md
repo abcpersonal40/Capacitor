@@ -22,7 +22,7 @@
 - OS-scheduled background runner এবং policy-gated background GPS
 - Preferences, native SQLite, Keychain/Android Keystore-backed secure storage
 - filesystem, progress-সহ upload/download, share, network state
-- **Nearby Connections P2P** (v1.4.x): সম্পূর্ণ অফলাইন device-to-device — advertise/discovery, auto-accept pairing, গ্রুপ চ্যাট ও chunked ফাইল ট্রান্সফার (Bluetooth/BLE/Wi-Fi Direct);পারমিশন টেমপ্লেট-গেটেড — `features.nearby`
+- **Nearby Connections P2P** (v1.4.x): সম্পূর্ণ অফলাইন device-to-device — advertise/discovery, auto-accept pairing, গ্রুপ চ্যাট ও chunked ফাইল ট্রান্সফার (Bluetooth/BLE/Wi-Fi Direct); পারমিশন টেমপ্লেট-গেটেড — `features.nearby`
 - push API/plugin প্রস্তুত; Firebase/APNs credentials ইচ্ছাকৃতভাবে এখনো যোগ করা হয়নি
 - পৃথক HTTPS/localhost web target-এর জন্য optional Service Worker; installed native app-এর জন্য নয়
 - GitHub Actions: debug/release APK, AAB, Xcode 26 compile validation, signed IPA export
@@ -116,6 +116,7 @@ Trusted, installed ও remote URL—তিন tier-এর সম্পূর্�
 
 ## Documentation
 
+- [📚 সব ডকের সূচিকা/নেভিগেটর](./docs/INDEX.bn.md)
 - [Setup, replacement ও framework workflow](./docs/APP-REPLACEMENT.bn.md)
 - [সব configuration field](./docs/CONFIGURATION.bn.md)
 - [একক পূর্ণ Bengali NativeKit API reference—trusted host, installed package, App Browser manager ও remote URL](./docs/API-REFERENCE.bn.md)
@@ -157,10 +158,10 @@ Measurement-এর সময় local plugins `node_modules/@nativekit/*`-এ symli
 
 ## Validation status
 
-- Node **22.23.2**-এ সর্বশেষ `npm run check` pass: config validation, strict typecheck, **77/77 Vitest (7 files)**, bridge/type generation এবং native staging সফল। Direct tests exact installed result/event sanitization, camera/filesystem bounds, hidden API, quota rejection এবং package-preserving `usage/cleanup` success/failure-ও যাচাই করে। Node 22-এর read-only global `navigator`-এর সঙ্গেও focused HTTP/stream test shim compatible। Project engine/CI requirement **Node 22+**। সর্বশেষ full lockfile ও production-only `npm audit --audit-level=low`—উভয়টিতে **0 vulnerability**; `npm ls --all`-ও clean।
-- সর্বশেষ `npm run native:sync` Android/iOS/web-এর জন্য pass এবং উভয় native platform-এ সব **16টি Capacitor plugin package** register করেছে; Android-এ Capgo package-এর দুই class হওয়ায় 17 class registration। Generated declarations-এ exact broker-safe installed signatures এবং host `usage/cleanup` API আছে।
-- Chrome for Testing **152.0.7977.42**-এ `npm run test:browser:csp`-এর **43টি check** pass: চার consent action + stored allow/block, exact request order/redacted summary, blocked native-call suppression, 6 audit result, CSP/network matrix এবং bridge-free remote URL metadata/`noopener,noreferrer`/null opener/lifecycle। এটি actual generated browser document চালায়; native WebView smoke test-এর বিকল্প নয়।
-- JDK 21/API 36-এ isolated Android plugin এবং চারটি `OrderedChunkAccumulatorTest` pass। ছয় Kotlin target constrained-memory-তে আলাদাভাবে compile করার পরে এক worker/in-process Kotlin/SerialGC দিয়ে পূর্ণ `:app:assembleDebug` **BUILD SUCCESSFUL** (385 task; final pass-এ 9 executed, 376 up-to-date)।
-- সর্বশেষ source-এর installable debug APK `android-artifacts/nativekit-current-source-debug-2026-08-18.apk`; SHA-256 `1c44281754a6a14d0638bb87a2d21da994b2c4e0aac4b79eb835edbcd70c4699`। `android-artifacts/SHA256SUMS.txt` দিয়ে binary-টি verify হয়। পুরোনো revision-এর unsigned APK/AAB final workspace থেকে সরানো হয়েছে; GitHub Actions/controlled signing environment বর্তমান source থেকে নতুন release artifact তৈরি করবে।
+- সর্বশেষ `npm run check` pass (**25 আগস্ট 2026 re-run**; আগে Node **22.23.2**-এ অরিজিনাল run): config validation, strict typecheck, **79/79 Vitest (7 files)**, bridge/type generation এবং native staging সফল। Direct tests exact installed result/event sanitization, camera/filesystem bounds, hidden API, quota rejection এবং package-preserving `usage/cleanup` success/failure-ও যাচাই করে। Node 22-এর read-only global `navigator`-এর সঙ্গেও focused HTTP/stream test shim compatible। Project engine/CI requirement **Node 22+**। সর্বশেষ full lockfile ও production-only `npm audit --audit-level=low`—উভয়টিতে **0 vulnerability**; `npm ls --all`-ও clean।
+- সর্বশেষ `npm run native:sync` Android/iOS/web-এর জন্য pass এবং উভয় native platform-এ সব **18টি plugin package** register করেছে (16 external npm + 2 লোকাল `plugins/`); Capgo-এর দুই class-সহ মোট **19টি plugin class registration** (25 আগস্ট 2026-এ `capacitor.plugins.json` থেকে গোনা)। Generated declarations-এ exact broker-safe installed signatures এবং host `usage/cleanup` API আছে।
+- (১৮ আগস্ট 2026-এর শেষ চালিত run — v1.4.x-এর পরে re-run বাকি) Chrome for Testing **152.0.7977.42**-এ `npm run test:browser:csp`-এর **43টি check** pass: চার consent action + stored allow/block, exact request order/redacted summary, blocked native-call suppression, 6 audit result, CSP/network matrix এবং bridge-free remote URL metadata/`noopener,noreferrer`/null opener/lifecycle। এটি actual generated browser document চালায়; native WebView smoke test-এর বিকল্প নয়।
+- (১৮ আগস্ট 2026-এর শেষ local full build) JDK 21/API 36-এ isolated Android plugin এবং চারটি `OrderedChunkAccumulatorTest` pass। ছয় Kotlin target constrained-memory-তে আলাদাভাবে compile করার পরে এক worker/in-process Kotlin/SerialGC দিয়ে পূর্ণ `:app:assembleDebug` **BUILD SUCCESSFUL** (385 task; final pass-এ 9 executed, 376 up-to-date)।
+- ডিভাইস-টেস্টেড সর্বশেষ installable APK: **v1.4.1-testlab** (versionCode 16; commit `7eeefa0`-এর সোর্স — বর্তমান সোর্সের APK-প্রাসঙ্গিক অংশ অভিন্ন)। SHA-256: release `6bbc9d975daecac3d6e6f8db64c853e5600227c125d4a163c8fe3d667a165771`, debug `ab320f46b6eea4398654677da558766c252d809035612698bb3b4875a03010ce`। রিপোজিটরিতে APK/AAB ট্র্যাক করা হয় না — artifact আলাদা workspace (`capacitor-2-testlab-apk/`) ও GitHub Actions-এ থাকে; নতুন রিলিজ CI থেকে তৈরি হয়।
 - Linux workspace-এ Swift compiler/Xcode নেই। iOS project/source/sync ও stable bridge-free remote-profile source regression প্রস্তুত, কিন্তু iOS native compile এবং actual Android/iOS WebView runtime/crash/hang/storage/consent-cleanup smoke test release-এর আগে macOS/Xcode 26, CI, emulator বা device-এ করতে হবে।
-- বর্তমান final persistable workspace **29,545,554 bytes / 28.18 MiB / 208 files**—`128 MiB / 10,000 files` সীমার নিচে। Measurement-only `node_modules/` সরানো হয়েছে; dependency/build/cache directory measurement-এ ধরা হয়নি এবং snapshot/export policy-তেও excluded। Temporary JDK, Android SDK, Chrome/archive/runtime dependency cache এবং generated Gradle build directory সরানো হয়েছে; installable APK আলাদা artifact হিসেবে রাখা হয়েছে।
+- বর্তমান git-tracked source tree **178 files / 1,789,841 logical bytes (≈1.71 MiB)** (25 আগস্ট 2026) — snapshot-সীমার (`128 MiB / 10,000 files`) খুব নিচে; `node_modules/`, Gradle build, `.nativekit/` ও APK/AAB artifact ট্র্যাক-বহির্ভূত।

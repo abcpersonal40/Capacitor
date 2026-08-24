@@ -18,7 +18,7 @@
 ## আমাদের ফিক্স (v1.3.4) — দুই স্তরে
 ১. **কিভাবে বুঝব ফুলস্ক্রিনে গেছে?** JS জিজ্ঞেস করতে হয় না। Android-এ হাঁ'সেখানে: `onShowCustomView` ঘটলে decorView-এ **নতুন top-level child যুক্ত হয়** — তাই আমরা decorView-এর `OnHierarchyChangeListener` দিয়ে detect করি (initial layout- এলাকার শিশুদের এড়াতে এক post-টিকের পরে "armed" করি)
 ২. **Detected → immersive**:
-   - Main shell (`MainActivity` — **configure-native টেমপ্লেটে**, যেহেতু ওটা গর্বে_buildে_ড over_write হয় — আগের ভুল থেকে শিক্ষা)
+   - Main shell (`MainActivity` — **configure-native টেমপ্লেটে**, যেহেতু `configure:native` রানে MainActivity রিজেনারেট/ওভাররাইট হয় — আগের ভুল থেকে শিক্ষা)
    - Mini-app উইন্ডো (`IsolatedBrowserActivity` — plugin ফাইল, যা regenerate হয় না)
 
 ### আচরণ (পরীক্ষার ছক)

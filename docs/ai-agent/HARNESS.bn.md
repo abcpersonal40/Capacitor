@@ -71,7 +71,7 @@
 ## ৫) Provider Adapter — প্রথমে Claude
 - Base URL `https://api.anthropic.com` (network full-এ সরাসরি)
 - API key → **কখনো source-এ নয়** — আমাদের `Secure Preferences`/keystore-backed স্টোরে; owner settings-এ একবার দিলে save হবে
-- মডিঊল: `www/agent/providers/anthropic.js` — `complete({system, messages, tools, max_tokens})`
+- মডিউল: `www/agent/providers/anthropic.js` — `complete({system, messages, tools, max_tokens})`
 - Per-turn টোকেন গণনা + ব্যয় stats Manager-এ দেখা যাবে (netstat-এর পাশে "agent" ট্যাব)
 
 ## ৬) Memory আর্কিটেকচার (IDB-এ তিন layer)
@@ -118,4 +118,4 @@ IDB v 4-এ আগেই `netstats` আছে; পরের মাইগ্র�
   - `clipboard.read/write`, `dialog.confirm` — টায়ার-১ প্যাকে; dialog-চাইতে high-risk consent-এর আলাদা UI না বানিয়েই
 - স্ট্যাটাস: M0 (এই নকশা) ✅ · M1 (chat + ৪ টুল + approval) ⏳ — মূল অবকাঠামো (secure store, SSE streaming, audit, consent prompts) বিদ্যমান; মূল কাজ `www/agent/` মডিউলটাই লেখা।
 
-> Provider নোট: প্রথম বাছাই Claude/Anthropic থাকলেও, এজেন্ট-লুপ ও টুল-রেজিস্ট্রি সম্পূর্ণ provider-agnostic রাখা আবশ্যক — একই tool schema দিয়ে Claude tool_use, OpenAI function calling ও Gemini function-declarations তিনটাই চলে; adapter-ই পারিশা করে।
+> Provider নোট: প্রথম বাছাই Claude/Anthropic থাকলেও, এজেন্ট-লুপ ও টুল-রেজিস্ট্রি সম্পূর্ণ provider-agnostic রাখা আবশ্যক — একই tool schema দিয়ে Claude tool_use, OpenAI function calling ও Gemini function-declarations তিনটাই চলে; adapter-ই পার্স করে।
