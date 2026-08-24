@@ -224,3 +224,47 @@ function hexToRgba(hex, alpha) {
   window.addEventListener('resize', runDiag);
   setTimeout(runDiag, 1500);
 })();
+
+// ── FULLSCREEN TEST PAGE (owner spec: fullscreen ভিউ + নিচে মাল্টিবল বাটন) ──
+(() => {
+  const btn = document.getElementById('bt-fullscreen');
+  if (!btn) return;
+  let overlay = null;
+  function notifyNative() {
+    try { if (window.NativeKitImmersive) window.NativeKitImmersive.setFullscreen(!!document.fullscreenElement); } catch (e) {}
+  }
+  document.addEventListener('fullscreenchange', () => {
+    notifyNative();
+    if (!document.fullscreenElement && overlay) { overlay.remove(); overlay = null; }
+  });
+  btn.addEventListener('click', () => {
+    overlay = document.createElement('div');
+    overlay.style.cssText = 'position:relative;width:100%;height:100%;background:radial-gradient(circle at 20% 15%,#ff006e,#3a0ca3 45%,#03071e);color:#fff;display:flex;flex-direction:column;justify-content:space-between;font-family:inherit';
+    overlay.innerHTML = [
+      '<div style="padding:28px 20px;text-align:center">',
+      '  <div style="font-size:60px">📺</div>',
+      '  <h2 style="margin:6px 0;color:#fff">Fullscreen Test Page</h2>',
+      '  <p style="opacity:.85;max-width:480px;margin:8px auto 0">এই ভিউ fullscreen-এ আছে — system bar-গুলো <b>লুকিয়ে যাওয়া উচিত</b> (নিচের ফোনো বোতাম এলাকা সহ), শুধু হাল্কা swipe-এ ফিরে আসবে। নিচের বাটনগুলো এখন নিরাপদে ব্যবহারযোগ্য।</p>',
+      '</div>',
+      '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:6px 12px 10px">',
+      '  <button data-fs="a" style="background:#ffffff;color:#111;border:0;border-radius:10px;padding:12px 14px;font-weight:800">🎨 রঙ বদলাও</button>',
+      '  <button data-fs="b" style="background:#ffd166;color:#221;border:0;border-radius:10px;padding:12px 14px;font-weight:800">🔃 বাটন জায়গা বদলাও</button>',
+      '  <button data-fs="c" style="background:#06d6a0;color:#021;border:0;border-radius:10px;padding:12px 14px;font-weight:800">📊 Diagnostic</button>',
+      '  <button data-fs="x" style="background:#ef476f;color:#fff;border:0;border-radius:10px;padding:12px 14px;font-weight:900">✖ Exit fullscreen</button>',
+      '</div>'
+    ].join('');
+    const palette = ['radial-gradient(circle at 20% 15%,#ff006e,#3a0ca3 45%,#03071e)', 'radial-gradient(circle at 80% 20%,#06d6a0,#0b6623 45%,#021a06)', 'radial-gradient(circle at 50% 10%,#ffd166,#e09f3e 45%,#331e03)', 'radial-gradient(circle at 30% 30%,#8338ec,#3a86ff 45%,#04132b)'];
+    let colorIdx = 0, swapped = false;
+    overlay.addEventListener('click', (ev) => {
+      const t = ev.target.closest('[data-fs]');
+      if (!t) return;
+      const a = t.dataset.fs;
+      if (a === 'x') { document.exitFullscreen && document.exitFullscreen(); }
+      else if (a === 'a') { colorIdx = (colorIdx + 1) % palette.length; overlay.style.background = palette[colorIdx]; }
+      else if (a === 'b') { swapped = !swapped; overlay.style.flexDirection = swapped ? 'column-reverse' : 'column'; }
+      else if (a === 'c') { alert('window: ' + window.innerHeight + 'px / screen: ' + screen.height + 'px\nfullscreen: ' + (document.fullscreenElement ? 'YES' : 'NO')); }
+    });
+    document.body.appendChild(overlay);
+    overlay.requestFullscreen().catch((err) => alert('fullscreen ব্যর্থ: ' + err.message));
+  });
+})();

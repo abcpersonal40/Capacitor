@@ -398,6 +398,12 @@ public final class IsolatedBrowserActivity extends Activity {
             return;
         }
         webView = new WebView(this);
+        webView.addJavascriptInterface(new Object() {
+            @android.webkit.JavascriptInterface
+            public void setFullscreen(final boolean on) {
+                runOnUiThread(() -> applyImmersive(on));
+            }
+        }, "NativeKitImmersive");
         boolean profilePartition = WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE);
         if (profilePartition) {
             try { WebViewCompat.setProfile(webView, IsolatedAppStore.profileName(appId)); }

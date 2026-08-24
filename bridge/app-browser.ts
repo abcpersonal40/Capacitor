@@ -1608,6 +1608,9 @@ function buildDocument(app: InstalledApp, config: AppBrowserConfig, token: strin
     }
   }
   const broker = documentValue.createElement('script'); broker.textContent = bootstrapSource(token, app); documentValue.head.prepend(broker);
+  const fsNotify = documentValue.createElement('script');
+  fsNotify.textContent = "document.addEventListener('fullscreenchange',function(){try{if(window.NativeKitImmersive)window.NativeKitImmersive.setFullscreen(!!document.fullscreenElement);}catch(e){}});";
+  (documentValue.body ?? documentValue.documentElement).appendChild(fsNotify);
   return `<!doctype html>\n${documentValue.documentElement.outerHTML}`;
 }
 

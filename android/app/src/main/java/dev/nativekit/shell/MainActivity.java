@@ -4,6 +4,7 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -32,6 +33,7 @@ public class MainActivity extends BridgeActivity {
         // permanent dark strip instead of the page.
         applyBlendWindow();
         installFullscreenImmersiveWatcher();
+        installImmersiveJsBridge();
 
         // Deterministic safe-area bridge: we ONLY read insets here and publish them as
         // --safe-area-inset-* CSS variables. Nothing pads or resizes for the IME
@@ -115,6 +117,20 @@ public class MainActivity extends BridgeActivity {
         boolean matchH = lp.height == ViewGroup.LayoutParams.MATCH_PARENT || lp.height >= (int) (h * 0.7f);
         boolean matchW = lp.width == ViewGroup.LayoutParams.MATCH_PARENT || lp.width >= (int) (w * 0.7f);
         return matchH && matchW;
+    }
+
+    // ELEMENT-FULLSCREEN bridge: Chromium WebView handles requestFullscreen() on a
+    // plain element INTERNALLY (no onShowCustomView ever fires), so the page tells
+    // us via fullscreenchange → this JS interface. Immersive only on TRUE fullscreen.
+    private void installImmersiveJsBridge() {
+        WebView wv = getBridge() != null ? getBridge().getWebView() : null;
+        if (wv == null) return;
+        wv.addJavascriptInterface(new Object() {
+            @JavascriptInterface
+            public void setFullscreen(final boolean on) {
+                runOnUiThread(() -> applyImmersive(on));
+            }
+        }, "NativeKitImmersive");
     }
 
     private void applyImmersive(boolean active) {
