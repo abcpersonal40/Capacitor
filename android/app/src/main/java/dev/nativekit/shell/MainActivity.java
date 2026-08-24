@@ -3,8 +3,11 @@ package dev.nativekit.shell;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.WebView;
 import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -28,6 +31,7 @@ public class MainActivity extends BridgeActivity {
         // dark windowBackground showed through the transparent bars — users saw a
         // permanent dark strip instead of the page.
         applyBlendWindow();
+        installFullscreenImmersiveWatcher();
 
         // Deterministic safe-area bridge: we ONLY read insets here and publish them as
         // --safe-area-inset-* CSS variables. Nothing pads or resizes for the IME
@@ -66,6 +70,43 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
         applyBlendWindow(); // re-apply if the theme/system reset bar colors
+    }
+
+    // FULLSCREEN IMMERSIVE: when HTML content (e.g. a video) calls the HTML5
+    // fullscreen API, Android's WebChromeClient.onShowCustomView adds a NEW top-level
+    // view onto the decor. With our transparent bars that overlay would let the
+    // phone's nav buttons float ON TOP of the page's own bottom buttons. So while
+    // fullscreen is active we hide the system bars (immersive sticky: a swipe
+    // reveals them translucently and they auto-hide again).
+    private boolean decorWatcherArmed = false;
+    private boolean immersiveActive = false;
+
+    private void installFullscreenImmersiveWatcher() {
+        final ViewGroup decorView = (ViewGroup) getWindow().getDecorView();
+        decorView.setOnHierarchyChangeListener(new ViewGroup.OnHierarchyChangeListener() {
+            @Override public void onChildViewAdded(View parent, View child) {
+                if (!decorWatcherArmed || child == decorView) return;
+                setImmersive(true);
+            }
+            @Override public void onChildViewRemoved(View parent, View child) {
+                if (!decorWatcherArmed) return;
+                setImmersive(false);
+                applyBlendWindow();
+            }
+        });
+        decorView.post(() -> decorWatcherArmed = true); // ignore the initial layout children
+    }
+
+    private void setImmersive(boolean active) {
+        if (immersiveActive == active) return;
+        immersiveActive = active;
+        WindowInsetsControllerCompat ic = new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
+        if (active) {
+            ic.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            ic.hide(WindowInsetsCompat.Type.systemBars());
+        } else {
+            ic.show(WindowInsetsCompat.Type.systemBars());
+        }
     }
 
     private void injectSafeAreaCss() {

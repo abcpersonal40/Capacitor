@@ -185,6 +185,40 @@ public final class IsolatedBrowserActivity extends Activity {
         initializeFromIntent(intent);
     }
 
+    // FULLSCREEN IMMERSIVE: if the mini-app enters HTML5 fullscreen (video etc.),
+    // hide the system bars so the phone nav buttons never float on top of the
+    // page's own controls. Swipe reveals them translucently (standard UX).
+    private boolean decorWatcherArmed = false;
+    private boolean immersiveActive = false;
+
+    private void installImmersiveWatcher() {
+        final ViewGroup decorView = (ViewGroup) getWindow().getDecorView();
+        decorView.setOnHierarchyChangeListener(new ViewGroup.OnHierarchyChangeListener() {
+            @Override public void onChildViewAdded(View parent, View child) {
+                if (!decorWatcherArmed || child == decorView) return;
+                setImmersive(true);
+            }
+            @Override public void onChildViewRemoved(View parent, View child) {
+                if (!decorWatcherArmed) return;
+                setImmersive(false);
+                applySystemBars(getIntent().getStringExtra(EXTRA_COLOR_SCHEME));
+            }
+        });
+        decorView.post(() -> decorWatcherArmed = true);
+    }
+
+    private void setImmersive(boolean active) {
+        if (immersiveActive == active) return;
+        immersiveActive = active;
+        WindowInsetsControllerCompat ic = new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
+        if (active) {
+            ic.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            ic.hide(WindowInsetsCompat.Type.systemBars());
+        } else {
+            ic.show(WindowInsetsCompat.Type.systemBars());
+        }
+    }
+
     // BLEND MODE: transparent bars + icon contrast from the app's colorScheme.
     // The mini-app's page colors flow under the bars instead of a fixed strip.
     private void applySystemBars(String scheme) {
@@ -264,6 +298,7 @@ public final class IsolatedBrowserActivity extends Activity {
 
     private void initializeFromIntent(Intent intent) {
         applySystemBars(intent.getStringExtra(EXTRA_COLOR_SCHEME));
+        if (!decorWatcherArmed) installImmersiveWatcher();
         try {
             sessionId = required(intent, EXTRA_SESSION_ID);
             token = required(intent, EXTRA_TOKEN);
