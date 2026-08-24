@@ -415,27 +415,45 @@ public class MainActivity extends BridgeActivity {
     // fullscreen is active we hide the system bars (immersive sticky: a swipe
     // reveals them translucently and they auto-hide again).
     private boolean decorWatcherArmed = false;
-    private boolean immersiveActive = false;
+    private android.view.View fullscreenView = null;
 
     private void installFullscreenImmersiveWatcher() {
         final ViewGroup decorView = (ViewGroup) getWindow().getDecorView();
         decorView.setOnHierarchyChangeListener(new ViewGroup.OnHierarchyChangeListener() {
             @Override public void onChildViewAdded(View parent, View child) {
                 if (!decorWatcherArmed || child == decorView) return;
+                if (!isTrueFullscreenOverlay(child)) return;
+                fullscreenView = child;
                 applyImmersive(true);
             }
             @Override public void onChildViewRemoved(View parent, View child) {
                 if (!decorWatcherArmed) return;
-                applyImmersive(false);
-                applyBlendWindow();
+                if (child == fullscreenView) {
+                    fullscreenView = null;
+                    applyImmersive(false);
+                    applyBlendWindow();
+                }
             }
         });
         decorView.post(() -> decorWatcherArmed = true); // ignore the initial layout children
     }
 
+    private boolean isTrueFullscreenOverlay(android.view.View child) {
+        if (child.getVisibility() != android.view.View.VISIBLE) return false;
+        int h = getWindow().getDecorView().getHeight();
+        int w = getWindow().getDecorView().getWidth();
+        if (h <= 0 || w <= 0) {
+            h = getResources().getDisplayMetrics().heightPixels;
+            w = getResources().getDisplayMetrics().widthPixels;
+        }
+        ViewGroup.LayoutParams lp = child.getLayoutParams();
+        if (lp == null) return false;
+        boolean matchH = lp.height == ViewGroup.LayoutParams.MATCH_PARENT || lp.height >= (int) (h * 0.7f);
+        boolean matchW = lp.width == ViewGroup.LayoutParams.MATCH_PARENT || lp.width >= (int) (w * 0.7f);
+        return matchH && matchW;
+    }
+
     private void applyImmersive(boolean active) {
-        if (immersiveActive == active) return;
-        immersiveActive = active;
         WindowInsetsControllerCompat ic = new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
         if (active) {
             ic.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);

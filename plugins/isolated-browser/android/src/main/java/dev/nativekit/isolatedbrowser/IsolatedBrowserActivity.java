@@ -190,27 +190,45 @@ public final class IsolatedBrowserActivity extends Activity {
     // hide the system bars so the phone nav buttons never float on top of the
     // page's own controls. Swipe reveals them translucently (standard UX).
     private boolean decorWatcherArmed = false;
-    private boolean immersiveActive = false;
+    private View fullscreenView = null;
 
     private void installImmersiveWatcher() {
         final ViewGroup decorView = (ViewGroup) getWindow().getDecorView();
         decorView.setOnHierarchyChangeListener(new ViewGroup.OnHierarchyChangeListener() {
             @Override public void onChildViewAdded(View parent, View child) {
                 if (!decorWatcherArmed || child == decorView) return;
+                if (!isTrueFullscreenOverlay(child)) return;
+                fullscreenView = child;
                 applyImmersive(true);
             }
             @Override public void onChildViewRemoved(View parent, View child) {
                 if (!decorWatcherArmed) return;
-                applyImmersive(false);
-                applySystemBars(getIntent().getStringExtra(EXTRA_COLOR_SCHEME));
+                if (child == fullscreenView) {
+                    fullscreenView = null;
+                    applyImmersive(false);
+                    applySystemBars(getIntent().getStringExtra(EXTRA_COLOR_SCHEME));
+                }
             }
         });
         decorView.post(() -> decorWatcherArmed = true);
     }
 
+    private boolean isTrueFullscreenOverlay(View child) {
+        if (child.getVisibility() != View.VISIBLE) return false;
+        int h = getWindow().getDecorView().getHeight();
+        int w = getWindow().getDecorView().getWidth();
+        if (h <= 0 || w <= 0) {
+            h = getResources().getDisplayMetrics().heightPixels;
+            w = getResources().getDisplayMetrics().widthPixels;
+        }
+        ViewGroup.LayoutParams lp = child.getLayoutParams();
+        if (lp == null) return false;
+        boolean matchH = lp.height == ViewGroup.LayoutParams.MATCH_PARENT || lp.height >= (int) (h * 0.7f);
+        boolean matchW = lp.width == ViewGroup.LayoutParams.MATCH_PARENT || lp.width >= (int) (w * 0.7f);
+        return matchH && matchW;
+    }
+
     private void applyImmersive(boolean active) {
-        if (immersiveActive == active) return;
-        immersiveActive = active;
         WindowInsetsControllerCompat ic = new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
         if (active) {
             ic.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
