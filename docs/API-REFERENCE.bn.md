@@ -1338,3 +1338,101 @@ Measurement-এর সময় local package দুটি `node_modules/@nativekit
 `onPermissionChanged(granted)` · `onBluetoothStateChanged(state)` · `onEndpointFound/…Lost` `{endpointID, endpointName?}` · `onEndpointInitiated` `{…+authenticationToken, authenticationStatus, isIncomingConnection}` · `onEndpointConnected/…Rejected` `{endpoint}` · `onEndpointFailed` `{endpoint+status}` · `onEndpointDisconnected` · `onEndpointBandwidthChanged` `{endpoint+quality: unknown|low|medium|high}` · `onPayloadReceived` `{endpointID, payloadID, payloadType, payload(base64)}` · `onPayloadTransferUpdate` `{payloadID, status: success|canceled|failure|inProgress, bytesTransferred, totalBytes}`
 
 TestLab-এ ফুল reference-এর ব্যবহারিক প্রমাণ: `www/app.js` "Nearby P2P Lab" মডিউল (চ্যাট + chunked ফাইল প্রোটোকল `fmeta/fchunk/fend/fcancel`, chunk=262,143B)।
+
+---
+
+## `NativeKit.nearby` — পূর্ণ ওয়েব-ডেভ গাইড (যাচাইকৃত ২৫ আগস্ট ২০২৬)
+
+### Trust-tier উপলব্ধতা
+
+| Tier | `nearby` পায়? | কারণ |
+|---|---|---|
+| Trusted `www/` (আপনার প্রধান অ্যাপ) | ✅ পূর্ণ ১৮ মেম্বার | সরাসরি host bridge |
+| **Installed mini-app** | ❌ **নেই** | broker capability enum `APP_BROWSER_CAPABILITIES` (১৯টা আইটেম) ও ৫৬টি নির্দিষ্ট মেথডের allowlist-এ `nearby` **নেই** — সোর্স: `bridge/app-browser.ts` (লাইন ৪–৮) |
+| Remote URL (`openUrl`) | ❌ কোনো NativeKit-ই নেই | bridge-free tier |
+
+**সর্বজনীন নিয়ম (যেকোনো নতুন প্লাগিনের ক্ষেত্রে):** নতুন facade মিনি-অ্যাপে **কখনোই অটোম্যাটিক চলে আসে না।** এক্সপোজ করতে দুই ধাপই আলাদা ইঞ্জিনিয়ারিং সিদ্ধান্ত: (১) `APP_BROWSER_CAPABILITIES`-এ নতুন কী যোগ, (২) broker method table-এ `MethodDefinition` এন্ট্রি + consent/audit পাথ। এই বাধাটা ইচ্ছাকৃত — তৃতীয়-পক্ষের কোড নতুন native সারফেস মালিকের সিদ্ধান্ত ছাড়া ছুঁতেই পারে না।
+
+### ধাপে-ধাপে ব্যবহার (প্রকৃত facade মেথড দিয়ে)
+
+ফাইলে `NK = window.NativeKit` ধরে নিলে:
+
+```js
+await NK.ready();
+
+// ১) পারমিশন — ৬টি গ্রুপ; কোনো একটিও denied হলে native advertise/discovery 8034 তুলবে
+const grants = await NK.nearby.requestPermissions();
+//   → { wifiNearby, wifiState, bluetoothNearby, bluetoothLegacy, location, locationCoarse }
+// UI-নিয়ম (v1.4.1): location/locationCoarse মিসিং হলে আগে NK.permissions.requestLocation()
+// ডেকে আবার চাওয়া, শেষে ব্যর্থ হলে NK.permissions.openAppSettings() ডিপলিংক।
+
+// ২) initialize — strategy দুই পক্ষে মিলা আবশ্যক (না মিললে টানা "peer পাওয়া গেল না")
+await NK.nearby.initialize({ strategy: 'star' });
+
+// ৩) ইভেন্ট শোনা (১২টির যেকোনো ইভেন্ট একই generic addListener দিয়ে)
+const hFound = await NK.nearby.addListener('onEndpointFound',  e => console.log('পেলাম:', e.endpointID, e.endpointName));
+const hData  = await NK.nearby.addListener('onPayloadReceived', e => {
+  if (e.payload) console.log('মেসেজ:', NK.nearby.decodeBase64Utf8(e.payload)); // payload সবসময় base64
+});
+const hInit  = await NK.nearby.addListener('onEndpointInitiated', async e => {
+  await NK.nearby.acceptConnection({ endpointID: e.endpointID });  // auto-accept প্যাটার্ন
+});
+
+// ৪) দৃশ্যমানতা — যেকোনো বা দুটোই চালু করতে পারো
+await NK.nearby.startAdvertising();
+await NK.nearby.startDiscovery();
+
+// ৫) কানেক্ট — found-এ ক্লিকে:
+await NK.nearby.requestConnection({ endpointID: someId });
+
+// ৬) টেক্সট মেসেজ — payload string-ই; facade নিজে base64-এ পাল্টায় (alreadyBase64:true দিলে না)
+await NK.nearby.sendPayload({ endpointID: someId, payload: 'হ্যালো পিয়ার!' });
+
+// ৭) প্রোগ্রেস/ফল
+await NK.nearby.addListener('onPayloadTransferUpdate', u => {
+  // { payloadID, status: 'inProgress'|'success'|'canceled'|'failure', bytesTransferred, totalBytes }
+});
+
+// ৮) UI সিঙ্কে (overlay reopen/e-দ্বিতীয়বার Start): native state-ই সত্য
+const st = await NK.nearby.status();   // → { isAdvertising, isDiscovering }
+
+// ৯) পরিষ্কার
+await NK.nearby.stopDiscovery(); await NK.nearby.stopAdvertising(); await NK.nearby.reset();
+await hFound.remove(); await hData.remove(); await hInit.remove();
+```
+
+### Strategy সারণি — কোনটা কখন
+
+| `strategy` | টপোলজি | ব্যবহার |
+|---|---|---|
+| `'star'` | ১ হোস্ট ↔ N ক্লায়েন্ট | হোস্টেড চ্যাট, শিক্ষক-শিক্ষার্থী, রিমোট কন্ট্রোল (সবচেয়ে ব্যবহৃত) |
+| `'cluster'` | সবাই ↔ সবাই mesh | গ্রুপ চ্যাট/কোলাব |
+| `'pointToPoint'` | ১ ↔ ১ | একক ফাইল ট্রান্সফার |
+
+Strategy রানটাইমে বদলাতে হলে আগে `reset()` → নতুন `initialize()` (শুধু initialize আবার ডাকলে `ALREADY_HAVE_ACTIVE_STRATEGY`)।
+
+### এরর/স্ট্যাটাস কোড রেফারেন্স (ডিভাইস-প্রমাণিত, v1.4.1)
+
+| কোড/নাম | অর্থ | UI-র সঠিক আচরণ |
+|---|---|---|
+| `8001` `ALREADY_ADVERTISING` | native-এ advertising আগে থেকেই চলছে | soft-pass (ℹ️) + `status()` দিয়ে UI সিঙ্ক |
+| `8002` `ALREADY_DISCOVERING` | discovery আগে থেকেই চলছে | soft-pass + সিঙ্ক |
+| `8003` `ALREADY_CONNECTED` (টো endpoint) | peer-টা তো কানেক্টেডই | soft-pass (ℹ️) |
+| `8034` `MISSING_PERMISSION…` | কোনো পারমিশন-গ্রুপ denied (বাস্তবে Location জিজ্ঞেস করে) | Geolocation permission ফ্লো → ব্যর্থ হলে App Settings ডিপলিংক |
+| `8047` `MISSING_FEATURE…` | ডিভাইসে BT/Wi-Fi হার্ডওয়্যার ফিচারই নেই | ফিচার হাইড |
+| অন্যান্য Status enum: `CONNECTION_REJECTED`, `RADIO_ERROR`, `ENDPOINT_UNKNOWN`, `PAYLOAD_UNKNOWN`, `AUTH_ERROR`, `OUT_OF_ORDER_API_CALL`… | প্লাগিনের Status enum-এর বাকি অবস্থা | ইভেন্ট-লগে raw দেখান |
+
+> শিল্প-নিয়ম: Local JS ফ্ল্যাগকে source-of-truth নয় — `status()` দিয়ে reconcile করো; 8001/8002/8003 সিরিজ "native-এ আগেই চলছে আছে" নির্দেশ করে।
+
+### ফাইল-ট্রান্সফার প্রোটোকল নকশা (TestLab-এর প্রমাণিত উদাহরণ)
+
+প্লাগিন upstream-এ BYTES payload-ই দেয়, তাই ফাইলও base64-সিরিজ হিসেবে যায়। TestLab (`www/app.js`) এই ছোট প্রোটোকলটা ব্যবহার করে:
+
+1. **fmeta** — `{type:'fmeta', id, name, size, chunks}` (JSON টেক্সট মেসেজ)
+2. **fchunk × N** — `{type:'fchunk', id, seq, data}` — `data` = **262,143-বাইটের** chunk-এর base64
+   - `262,143 = 2¹⁸ − 1` — 3-এর গুণিতক, ফলে base64 সীমানা পরিষ্কার; raw সীমার `MAX_PAYLOAD_BYTES = 1,047,552`-এর নীচেই নিরাপদ মার্জিন।
+3. **fend** — `{type:'fend', id}` → রিসিভার base64→bytes জোড়া দিয়ে সেভ করে (TestLab: `Data/nativekit-lab/received/`)
+4. **fcancel** — `{type:'fcancel', id, payloadID}` + পাঠানোর দিকে `cancelPayload({payloadID})`
+
+> বড় ফাইলে base64-এর ~33% overhead ও মেমরি চাপ মাথায় রাখো; এই প্রোটোকল MB-স্কেল UX-এর জন্য — গিগাবাইট-স্কেলে নয়।
+

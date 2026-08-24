@@ -5,7 +5,7 @@
 ## দ্রুত রেফারেন্স
 | ডক | এক লাইনে |
 |---|---|
-| [`API-REFERENCE.bn.md`](./API-REFERENCE.bn.md) | `window.NativeKit`-এর সম্পূর্ণ API — তিন trust tier, সব facade (v1.4.1-এ `nearby` যোগ) |
+| [`API-REFERENCE.bn.md`](./API-REFERENCE.bn.md) | `window.NativeKit`-এর সম্পূর্ণ API — তিন trust tier, সব facade; v1.4.x `nearby` গভীর গাইড (মিনি-অ্যাপ এক্সপোজার-নিয়মসহ) |
 | [`CONFIGURATION.bn.md`](./CONFIGURATION.bn.md) | `app.config.json`-এর প্রতিটি field + `features.*` গেট (v1.4.x: `nearby`) |
 | [`SECURITY-POLICY.bn.md`](./SECURITY-POLICY.bn.md) | Trust boundary, capability gate, audit, network mode — "golden rules" |
 | [`BUILD-SIGNING-CI.bn.md`](./BUILD-SIGNING-CI.bn.md) | সাইনিং, CI পাইপলাইন, রিলিজ প্রক্রিয়া |
