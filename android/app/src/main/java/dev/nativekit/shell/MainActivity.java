@@ -1,8 +1,10 @@
 package dev.nativekit.shell;
 
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.WebView;
+import androidx.core.view.WindowCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -20,6 +22,12 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // BLEND MODE (owner-tested): transparent system bars must carry the PAGE
+        // colors, so the window is full edge-to-edge here. Without this the decor's
+        // dark windowBackground showed through the transparent bars — users saw a
+        // permanent dark strip instead of the page.
+        applyBlendWindow();
 
         // Deterministic safe-area bridge: we ONLY read insets here and publish them as
         // --safe-area-inset-* CSS variables. Nothing pads or resizes for the IME
@@ -43,6 +51,21 @@ public class MainActivity extends BridgeActivity {
                 injectSafeAreaCss();
             }
         });
+    }
+
+    private void applyBlendWindow() {
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            getWindow().getAttributes().layoutInDisplayCutoutMode = 1; // SHORT_EDGES
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        applyBlendWindow(); // re-apply if the theme/system reset bar colors
     }
 
     private void injectSafeAreaCss() {

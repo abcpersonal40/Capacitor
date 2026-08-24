@@ -199,3 +199,28 @@ function hexToRgba(hex, alpha) {
     log('blend-test', 'মূল dark theme-এ ফিরলো');
   });
 })();
+
+// ── BLEND DIAGNOSTICS ── page সত্যিই পুরো screen-এ ছড়িয়ে গেছে কিনা সরাসরি প্রমাণ
+(() => {
+  const diag = document.getElementById('bt-diag');
+  if (!diag) return;
+  function runDiag() {
+    const ua = /Android\s+([\d.]+)/.exec(navigator.userAgent);
+    const insetB = getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-bottom') || '(none)';
+    const insetT = getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-top') || '(none)';
+    const full = Math.abs(window.innerHeight - screen.height) <= 4;
+    const body = getComputedStyle(document.body);
+    diag.textContent = [
+      'BLEND DIAGNOSTICS (এই তথ্য আমাদের জানালে দ্রুত ঠিক করতে পারব):',
+      '  Android version: ' + (ua ? ua[1] : 'unknown (UA: ' + navigator.userAgent.slice(0, 60) + '…)'),
+      '  window.innerHeight: ' + window.innerHeight + 'px   screen.height: ' + screen.height + 'px',
+      '  page spans FULL screen (bars-এর নিচ পর্যন্ত): ' + (full ? '✅ হ্যাঁ' : '❌ না — কনটেন্ট বারের নিচে যাচ্ছে না'),
+      '  safe-area-inset-top: ' + insetT + '   bottom: ' + insetB,
+      '  body background-Image: ' + (body.backgroundImage.includes('gradient') ? 'gradient আছে ✓' : body.backgroundImage.slice(0, 30)),
+      '  body background-Color: ' + body.backgroundColor,
+    ].join('\n');
+  }
+  runDiag();
+  window.addEventListener('resize', runDiag);
+  setTimeout(runDiag, 1500);
+})();
