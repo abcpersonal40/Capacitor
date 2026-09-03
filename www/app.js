@@ -176,7 +176,11 @@ const actions = {
   floatshow: async () => {
     const perm = await window.NativeKit.widget.checkFloatingPermission();
     if (!perm.granted) return { running: false, hint: 'আগে Request permit দিন (Settings থেকে allow), তারপর আবার Show bubble।' };
-    return window.NativeKit.widget.showFloating({ title: 'NativeKit', page: 'public/widgets/floating.html', width: 240, height: 220, data: { value: widgetCount } });
+    const res = await window.NativeKit.widget.showFloating({ title: 'NativeKit', page: 'public/widgets/floating.html', width: 240, height: 220, collapsed: false, data: { value: widgetCount } });
+    if (res && res.shown === false) {
+      return { ...res, hint: res.error ? `Bubble attach failed: ${res.error}` : 'Bubble attach failed — check log.' };
+    }
+    return res;
   },
   floatsend: async () => {
     await window.NativeKit.widget.sendToFloating({ value: widgetCount });

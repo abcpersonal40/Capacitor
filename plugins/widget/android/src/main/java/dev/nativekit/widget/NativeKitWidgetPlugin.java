@@ -217,8 +217,22 @@ public class NativeKitWidgetPlugin extends Plugin {
             call.reject("Unable to start floating overlay service", error);
             return;
         }
+        // The service attaches the overlay window asynchronously on the main thread. Wait briefly
+        // for it to report a real outcome so the caller never sees "running: true" while nothing
+        // is on screen (a confusing symptom on Android 10 / low-end devices).
+        long deadline = System.currentTimeMillis() + 2000;
+        while (!FloatingWidgetService.isAttempted() && System.currentTimeMillis() < deadline) {
+            try { Thread.sleep(40); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); break; }
+        }
+        boolean shown = FloatingWidgetService.isShown();
+        String err = FloatingWidgetService.getLastError();
+        if (!shown && err != null) {
+            android.util.Log.e("NativeKitWidget", "floating overlay reported failure: " + err);
+        }
         JSObject result = new JSObject();
-        result.put("running", true);
+        result.put("running", FloatingWidgetService.isRunning());
+        result.put("shown", shown);
+        if (err != null) result.put("error", err);
         call.resolve(result);
     }
 
@@ -233,7 +247,8 @@ public class NativeKitWidgetPlugin extends Plugin {
     @PluginMethod
     public void isFloatingVisible(PluginCall call) {
         JSObject result = new JSObject();
-        result.put("visible", FloatingWidgetService.isRunning());
+        result.put("visible", FloatingWidgetService.isShown());
+        if (FloatingWidgetService.getLastError() != null) result.put("error", FloatingWidgetService.getLastError());
         call.resolve(result);
     }
 

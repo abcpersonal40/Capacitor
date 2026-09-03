@@ -57,6 +57,9 @@ public class FloatingWidgetService extends Service {
     private static final int NOTIFICATION_ID = 4801;
 
     private static boolean running = false;
+    private static volatile boolean windowShown = false;
+    private static volatile boolean windowAttempted = false;
+    private static volatile String lastError = null;
 
     private WindowManager windowManager;
     private WindowManager.LayoutParams params;
@@ -76,6 +79,12 @@ public class FloatingWidgetService extends Service {
     private boolean dragging = false;
 
     public static boolean isRunning() { return running; }
+    /** True once the overlay window has actually been attached to the screen. */
+    public static boolean isShown() { return windowShown && running; }
+    /** True once an attach was attempted (so callers can distinguish 'still starting' from 'failed'). */
+    public static boolean isAttempted() { return windowAttempted; }
+    /** Last attach/start error, or null if the window is showing. */
+    public static String getLastError() { return lastError; }
 
     @Override
     public void onCreate() {
@@ -98,7 +107,11 @@ public class FloatingWidgetService extends Service {
         try {
             buildBubble();
         } catch (Throwable error) {
-            Log.e(TAG, "buildBubble failed; stopping floating service", error);
+            // Capture the reason so showFloating can report it instead of a bare 'running: true'.
+            windowAttempted = true;
+            windowShown = false;
+            lastError = "buildBubble: " + (error == null ? "unknown" : error.getClass().getSimpleName() + ": " + error.getMessage());
+            Log.e(TAG, "buildBubble failed; stopping floating service: " + lastError, error);
             running = false;
             stopSelf();
         }
@@ -192,8 +205,11 @@ public class FloatingWidgetService extends Service {
         } else {
             contentView.addView(buildNativeContent());
         }
-        // Respect the requested initial state; default is collapsed (a small draggable bubble).
-        expanded = !config.optBoolean("collapsed", true);
+        // Respect the requested initial state. Default is EXPANDED so a "Show bubble" call
+        // actually shows the panel (a collapsed bubble is only a small header bar that users on
+        // low-end / Android 10 devices often read as 'nothing appeared'). Tap the header to
+        // collapse into the small draggable handle.
+        expanded = !config.optBoolean("collapsed", false);
         contentView.setVisibility(expanded ? View.VISIBLE : View.GONE);
         applyConfig();
         addToWindow();
@@ -406,11 +422,17 @@ public class FloatingWidgetService extends Service {
         params.x = dp(24);
         params.y = dp(96);
         bubbleView.setOnTouchListener(null); // drag only via header
+        windowAttempted = true;
         try {
             windowManager.addView(bubbleView, params);
+            windowShown = true;
+            lastError = null;
+            Log.i(TAG, "floating bubble overlay attached (type=" + type + ", x=" + params.x + ", y=" + params.y + ")");
         } catch (Throwable error) {
             // BadTokenException / SecurityException (no overlay permission) or Surface issues.
-            Log.e(TAG, "addView to overlay failed", error);
+            windowShown = false;
+            lastError = (error == null ? "unknown" : error.getClass().getSimpleName() + ": " + error.getMessage());
+            Log.e(TAG, "addView to overlay failed: " + lastError, error);
             running = false;
             stopSelf();
         }
@@ -468,6 +490,9 @@ public class FloatingWidgetService extends Service {
     @SuppressWarnings("deprecation") // the legacy stopForeground(boolean) branch only runs on API < 24.
     public void onDestroy() {
         running = false;
+        windowShown = false;
+        windowAttempted = false;
+        lastError = null;
         if (commandReceiver != null) {
             try { unregisterReceiver(commandReceiver); } catch (Exception ignored) {}
         }
