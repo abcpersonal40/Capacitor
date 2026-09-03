@@ -149,6 +149,7 @@ ${permissions}${legacyStorage}${nearbyPermissions}${floatingPermissions}${camera
 
         <meta-data android:name="dev.nativekit.ALARM_CHANNEL_ID" android:value="${xml(config.android.alarmChannelId)}" />
         <meta-data android:name="dev.nativekit.LOCATION_CHANNEL_ID" android:value="nativekit_location" />
+        <meta-data android:name="dev.nativekit.FLOATING_START_ON_LAUNCH" android:value="${config.widget.floating.startOnLaunch}" />
 
         <activity
             android:name=".MainActivity"

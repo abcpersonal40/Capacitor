@@ -6,6 +6,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
@@ -67,6 +69,39 @@ public class NativeKitWidgetPlugin extends Plugin {
             // load step crash the whole app at startup.
             android.util.Log.e("NativeKitWidget", "registerReceiver failed", error);
         }
+        // config.widget.floating.startOnLaunch (baked into the manifest at native-sync) lets the
+        // bubble appear automatically when the app launches. Guarded: only when the config asks for
+        // it AND the overlay permission is already granted AND no bubble is running.
+        maybeStartFloatingOnLaunch();
+    }
+
+    private void maybeStartFloatingOnLaunch() {
+        try {
+            if (FloatingWidgetService.isRunning()) return;
+            if (!readStartOnLaunch()) return;
+            if (!Settings.canDrawOverlays(getContext())) return; // no permission yet; wait for the user
+            Intent service = new Intent(getContext(), FloatingWidgetService.class);
+            service.setAction(FloatingWidgetService.ACTION_START);
+            try {
+                ContextCompat.startForegroundService(getContext(), service);
+            } catch (Exception error) {
+                android.util.Log.e("NativeKitWidget", "startFloatingOnLaunch startForegroundService failed", error);
+            }
+        } catch (Throwable error) {
+            android.util.Log.e("NativeKitWidget", "startFloatingOnLaunch failed", error);
+        }
+    }
+
+    /** Read config.widget.floating.startOnLaunch from the manifest meta-data baked at native-sync. */
+    private boolean readStartOnLaunch() {
+        try {
+            ApplicationInfo info = getContext().getPackageManager().getApplicationInfo(
+                    getContext().getPackageName(), PackageManager.GET_META_DATA);
+            if (info != null && info.metaData != null) {
+                return info.metaData.getBoolean("dev.nativekit.FLOATING_START_ON_LAUNCH", false);
+            }
+        } catch (Throwable ignored) {}
+        return false;
     }
 
     @Override
@@ -168,6 +203,12 @@ public class NativeKitWidgetPlugin extends Plugin {
         boolean requested = manager.requestPinAppWidget(providerComponent(kind), null, null);
         JSObject result = new JSObject();
         result.put("requested", requested);
+        // On some launchers (Samsung/MIUI/AOSP) requestPinAppWidget returns false right after a
+        // fresh install or when the launcher hasn't refreshed the provider yet. Surface it so the
+        // user has a reliable fallback instead of seeing nothing happen.
+        if (!requested) result.put("hint",
+                "The launcher did not show the pin prompt — long-press the home screen → Widgets → "
+                + "add \"" + kind + "\" manually.");
         call.resolve(result);
     }
 
@@ -271,7 +312,15 @@ public class NativeKitWidgetPlugin extends Plugin {
         command.putExtra("cmd", "send");
         command.putExtra("data", data.toString());
         getContext().sendBroadcast(command);
-        call.resolve();
+        // Report whether the command was actually delivered to a live, on-screen bubble. Previously
+        // sendToFloating always resolved (nothing) even when no bubble was running, so a developer
+        // pushing data saw a silent success. Now they get the real state.
+        JSObject result = new JSObject();
+        boolean shown = FloatingWidgetService.isShown();
+        result.put("delivered", shown);
+        result.put("running", FloatingWidgetService.isRunning());
+        result.put("shown", shown);
+        call.resolve(result);
     }
 
     // -- Helpers ----------------------------------------------------------------

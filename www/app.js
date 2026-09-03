@@ -183,8 +183,8 @@ const actions = {
     return res;
   },
   floatsend: async () => {
-    await window.NativeKit.widget.sendToFloating({ value: widgetCount });
-    return { pushed: widgetCount };
+    const res = await window.NativeKit.widget.sendToFloating({ value: widgetCount });
+    return { pushed: widgetCount, delivered: res.delivered, running: res.running, hint: res.delivered ? null : 'Bubble এখন দেখা যাচ্ছে না — আগে Show bubble দিন।' };
   },
   floathide: () => window.NativeKit.widget.hideFloating(),
   widgetlisten: async () => {

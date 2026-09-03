@@ -22,7 +22,12 @@ export interface WidgetConfig {
   actionValue?: string;
   /** Label for the action button (default "Open"). */
   buttonLabel?: string;
-  /** Extra free-form values rendered by the native or HTML renderer. */
+  /**
+   * Optional free-form metadata. NOTE: the home-screen widget is drawn with native Android
+   * RemoteViews (TextView-only, rendered by the launcher), which cannot render arbitrary keys.
+   * Pass the known layout fields directly (value/title/subtitle/icon/colors/action/buttonLabel)
+   * instead. Use a custom floating page for full HTML/CSS/JS design.
+   */
   extra?: Record<string, unknown>;
 }
 
@@ -46,13 +51,13 @@ export interface NativeKitWidgetPlugin extends Plugin {
   listConfigs(): Promise<Record<string, WidgetConfig>>;
   getWidgetIds(options: { kind: string }): Promise<{ ids: number[] }>;
   reload(options?: { kind?: string }): Promise<{ updated: number }>;
-  requestPin(options: { kind: string }): Promise<{ requested: boolean }>;
+  requestPin(options: { kind: string }): Promise<{ requested: boolean; hint?: string }>;
   checkOverlayPermission(): Promise<{ granted: boolean }>;
   requestOverlayPermission(): Promise<void>;
-  showFloating(options?: FloatingWidgetOptions): Promise<{ running: boolean }>;
+  showFloating(options?: FloatingWidgetOptions): Promise<{ running: boolean; shown: boolean; error?: string }>;
   hideFloating(): Promise<void>;
-  isFloatingVisible(): Promise<{ visible: boolean }>;
-  sendToFloating(options: { data: unknown }): Promise<void>;
+  isFloatingVisible(): Promise<{ visible: boolean; error?: string }>;
+  sendToFloating(options: { data: unknown }): Promise<{ delivered: boolean; running: boolean; shown: boolean }>;
   addListener(
     eventName: 'nativeWidgetTap' | 'nativeFloatingMessage',
     listenerFunc: (event: any) => void,
