@@ -212,7 +212,7 @@ public class NativeKitWidgetPlugin extends Plugin {
         service.setAction(FloatingWidgetService.ACTION_START);
         try {
             ContextCompat.startForegroundService(getContext(), service);
-        } catch (Throwable error) {
+        } catch (Exception error) {
             android.util.Log.e("NativeKitWidget", "startForegroundService failed", error);
             call.reject("Unable to start floating overlay service", error);
             return;
