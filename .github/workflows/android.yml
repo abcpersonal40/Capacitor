@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-${{ github.workflow }}-${{ github.ref }}
@@ -162,6 +162,46 @@ jobs:
           path: android-artifacts/
           if-no-files-found: error
           retention-days: 14
+
+      # Publish an installable GitHub Release automatically whenever a version tag is pushed.
+      # app-release.apk is signed (stable keystore when configured, else ephemeral test key) and
+      # is the "install & test" artifact; app-debug.apk is debug-signed; app-release.aab is the
+      # store-upload bundle. testlab tags are published as prereleases, matching prior convention.
+      - name: Publish GitHub Release (version tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF##*/}"
+          mode="${{ steps.android_signing.outputs.mode }}"
+          notes="Install **app-release.apk** to test on a device (signed: ${mode}). Verify with SHA256SUMS.txt."
+          if [[ "$mode" == "stable" ]]; then
+            notes+="\n\n- \`app-release.apk\` — signed with the configured stable keystore (installable + store-update-continuous)."
+          else
+            notes+="\n\n- \`app-release.apk\` — signed with a throwaway EPHEMERAL test key (installable for testing, NOT update-continuous, NOT store-valid)."
+          fi
+          notes+="\n- \`app-debug.apk\` — debug-signed, always installable.\n- \`app-release.aab\` — store upload bundle."
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag exists — uploading artifacts."
+            gh release upload "$tag" \
+              android-artifacts/app-debug.apk \
+              android-artifacts/app-release.apk \
+              android-artifacts/app-release.aab \
+              android-artifacts/SHA256SUMS.txt \
+              --clobber
+          else
+            echo "Creating release $tag."
+            gh release create "$tag" \
+              android-artifacts/app-debug.apk \
+              android-artifacts/app-release.apk \
+              android-artifacts/app-release.aab \
+              android-artifacts/SHA256SUMS.txt \
+              --prerelease \
+              --title "$tag — test build (signing: ${mode})" \
+              --notes "$notes"
+          fi
 
       - name: Remove temporary keystore
         if: always()
