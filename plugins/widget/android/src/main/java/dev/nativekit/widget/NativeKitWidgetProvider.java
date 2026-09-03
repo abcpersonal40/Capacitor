@@ -84,8 +84,10 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
     }
 
     private void render(Context context, AppWidgetManager manager, int appWidgetId, JSONObject config) {
-        if (config == null) config = new JSONObject();
-        String layoutName = config.optString("layout", "medium");
+        // Defensively-final local so lambdas below can capture it; a reassigned parameter is
+        // not "effectively final" and would not compile.
+        final JSONObject cfg = config != null ? config : new JSONObject();
+        String layoutName = cfg.optString("layout", "medium");
         int layoutRes;
         switch (layoutName) {
             case "small": layoutRes = R.layout.widget_small; break;
@@ -94,19 +96,19 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
         }
         RemoteViews views = new RemoteViews(context.getPackageName(), layoutRes);
 
-        boolean has = config.has("value");
-        setText(views, R.id.widget_value, config.optString("value", ""), has);
+        boolean has = cfg.has("value");
+        setText(views, R.id.widget_value, cfg.optString("value", ""), has);
 
-        setText(views, R.id.widget_title, config.optString("title",
+        setText(views, R.id.widget_title, cfg.optString("title",
                 context.getString(R.string.nativekit_widget_title)), true);
 
-        setText(views, R.id.widget_subtitle, config.optString("subtitle", ""), config.has("subtitle"));
+        setText(views, R.id.widget_subtitle, cfg.optString("subtitle", ""), cfg.has("subtitle"));
 
         // Icon is optional; only touch it when it is actually demanded so layouts without the
         // view (or empty values) never throw. All shipped layouts now include widget_icon, but
         // third-party renders / future small layouts may not.
-        String icon = config.optString("icon", "");
-        boolean showIcon = config.has("icon") && !icon.isEmpty();
+        String icon = cfg.optString("icon", "");
+        boolean showIcon = cfg.has("icon") && !icon.isEmpty();
         safe(views, R.id.widget_icon, () -> {
             views.setTextViewText(R.id.widget_icon, icon);
             views.setViewVisibility(R.id.widget_icon, showIcon ? View.VISIBLE : View.GONE);
@@ -114,9 +116,9 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
 
         // Colors are passed as hex strings to stay clear of Java int-overflow issues.
         safe(views, R.id.widget_root, () -> views.setInt(R.id.widget_root, "setBackgroundColor",
-                WidgetStore.color(config, "backgroundColor", 0xFF0F172A)));
+                WidgetStore.color(cfg, "backgroundColor", 0xFF0F172A)));
         safe(views, R.id.widget_value, () -> views.setTextColor(R.id.widget_value,
-                WidgetStore.color(config, "accentColor", 0xFF4FC3F7)));
+                WidgetStore.color(cfg, "accentColor", 0xFF4FC3F7)));
         safe(views, R.id.widget_title, () -> views.setTextColor(R.id.widget_title, 0xFFFFFFFF));
         safe(views, R.id.widget_subtitle, () -> views.setTextColor(R.id.widget_subtitle, 0xFFB0BEC5));
 
@@ -134,18 +136,18 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
         }
 
         // Optional dedicated action button -> emits nativeWidgetTap with the action payload.
-        if (config.has("action") && !config.optString("action", "").isEmpty()) {
+        if (cfg.has("action") && !cfg.optString("action", "").isEmpty()) {
             Intent tap = new Intent(context, getClass()).setAction(ACTION_TAP);
             tap.putExtra("id", appWidgetId);
-            tap.putExtra("action", config.optString("action"));
-            if (config.has("actionValue")) tap.putExtra("value", config.optString("actionValue"));
+            tap.putExtra("action", cfg.optString("action"));
+            if (cfg.has("actionValue")) tap.putExtra("value", cfg.optString("actionValue"));
             try {
                 PendingIntent tapPi = PendingIntent.getBroadcast(context, requestCode(kind(), 2), tap,
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
                 safe(views, R.id.widget_button, () -> {
                     views.setOnClickPendingIntent(R.id.widget_button, tapPi);
                     views.setViewVisibility(R.id.widget_button, View.VISIBLE);
-                    views.setTextViewText(R.id.widget_button, config.optString("buttonLabel",
+                    views.setTextViewText(R.id.widget_button, cfg.optString("buttonLabel",
                             context.getString(R.string.nativekit_widget_open)));
                 });
             } catch (Throwable error) {
