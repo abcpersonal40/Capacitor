@@ -10,6 +10,7 @@
 | [`WIDGETS.bn.md`](./WIDGETS.bn.md) | Home-screen (AppWidgetProvider/WidgetKit) + floating (overlay WebView) widget — আর্কিটেকচার, API, config, সীমাবদ্ধতা |
 | [`SECURITY-POLICY.bn.md`](./SECURITY-POLICY.bn.md) | Trust boundary, capability gate, audit, network mode — "golden rules" |
 | [`BUILD-SIGNING-CI.bn.md`](./BUILD-SIGNING-CI.bn.md) | সাইনিং, CI পাইপলাইন, রিলিজ প্রক্রিয়া |
+| [`RELEASING.md`](./RELEASING.md) | **নতুন test build release + install guide (EN)** — tag→auto-release flow, কোন ফাইল (app-release.apk) install করবে, signing mode, checksum verification, iOS IPA, secrets reference |
 | [`APP-REPLACEMENT.bn.md`](./APP-REPLACEMENT.bn.md) | অন্য অ্যাপ/আইডি রিলিজ করার নিয়ম (App ID, store record) |
 | [`IN-APP-BROWSER-COMPARISON.bn.md`](./IN-APP-BROWSER-COMPARISON.bn.md) | Capgo inappbrowser বেনামে বাছাইকরণ — বিকল্পগুলোর সঙ্গে তুলনা |
 | [`WEB-DEV-GUIDE.md`](./WEB-DEV-GUIDE.md) | **Web developer guide (EN)** — "একটা web component upload করলেই চলবে" (`⚡ Quick Add`), tag auto-detect, manifest synthesize, native-API consent — হিরো flow |
