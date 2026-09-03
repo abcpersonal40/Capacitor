@@ -81,9 +81,23 @@ interface NativeKitWidgetSpec {
 interface NativeKitFloatingWidgetOptions {
   title?: string;
   page?: string;
+  html?: string;
   width?: number;
   height?: number;
   collapsed?: boolean;
+  fullscreen?: boolean;
+  focusable?: boolean;
+  touchThrough?: boolean;
+  chrome?: 'bar' | 'none';
+  draggable?: boolean;
+  position?: {
+    gravity?: 'top' | 'center' | 'bottom';
+    align?: 'start' | 'center' | 'end';
+    x?: number;
+    y?: number;
+    marginX?: number;
+    marginY?: number;
+  };
   data?: unknown;
 }
 
@@ -620,6 +634,8 @@ interface NativeKitAPI {
     showFloating(options?: NativeKitFloatingWidgetOptions): Promise<{ running: boolean; shown: boolean; error?: string }>;
     hideFloating(): Promise<void>;
     isFloatingVisible(): Promise<{ visible: boolean; error?: string }>;
+    updateFloating(options?: Partial<NativeKitFloatingWidgetOptions>): Promise<{ delivered: boolean; running: boolean; shown: boolean }>;
+    runFloatingJavascript(script: string): Promise<{ delivered: boolean; running: boolean }>;
     sendToFloating(data: unknown): Promise<{ delivered: boolean; running: boolean; shown: boolean }>;
     onWidgetTap(callback: (event: { kind: string; action?: string; value?: string; widgetId?: number }) => void): Promise<NativeKitRemoveHandle>;
     onFloatingMessage(callback: (event: { data: unknown } | Record<string, unknown>) => void): Promise<NativeKitRemoveHandle>;

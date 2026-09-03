@@ -36,11 +36,36 @@ export interface FloatingWidgetOptions {
   title?: string;
   /** Optional asset path to load into the bubble's WebView (relative to public/). Default "widgets/floating.html". */
   page?: string;
-  /** Bubble size in dp (Android). */
+  /** Inline HTML for the WebView. Overrides `page` when set; base URL is the asset-loader host so relative ./assets resolve. */
+  html?: string;
+  /** Bubble size in dp (Android). Ignored when `fullscreen` is true. */
   width?: number;
   height?: number;
   /** Start collapsed to the small draggable bubble. */
   collapsed?: boolean;
+  /** Fill the whole screen (MATCH_PARENT) instead of a fixed-size bubble. Hides the native header. */
+  fullscreen?: boolean;
+  /** True => the overlay can take input focus (typing/IME). Default false. */
+  focusable?: boolean;
+  /** True => FLAG_NOT_TOUCHABLE pass-through overlay (a passive badge). Default false. */
+  touchThrough?: boolean;
+  /** 'bar' (default) shows the native header; 'none' hides it for a pure-HTML design. */
+  chrome?: 'bar' | 'none';
+  /** Whether the bubble can be dragged (drag only via the native header). Default true. */
+  draggable?: boolean;
+  /** Start position / anchor. */
+  position?: {
+    /** top (default) | center | bottom. */
+    gravity?: 'top' | 'center' | 'bottom';
+    /** start (default) | center | end. */
+    align?: 'start' | 'center' | 'end';
+    /** dp offset from the anchor (edge-relative). */
+    x?: number;
+    y?: number;
+    /** dp margin from the screen edge — used when x/y are omitted. */
+    marginX?: number;
+    marginY?: number;
+  };
   /** Initial data posted into the floating page. */
   data?: unknown;
 }
@@ -57,6 +82,8 @@ export interface NativeKitWidgetPlugin extends Plugin {
   showFloating(options?: FloatingWidgetOptions): Promise<{ running: boolean; shown: boolean; error?: string }>;
   hideFloating(): Promise<void>;
   isFloatingVisible(): Promise<{ visible: boolean; error?: string }>;
+  updateFloating(options?: Partial<FloatingWidgetOptions>): Promise<{ delivered: boolean; running: boolean; shown: boolean }>;
+  runFloatingJavascript(options: { script: string }): Promise<{ delivered: boolean; running: boolean }>;
   sendToFloating(options: { data: unknown }): Promise<{ delivered: boolean; running: boolean; shown: boolean }>;
   addListener(
     eventName: 'nativeWidgetTap' | 'nativeFloatingMessage',

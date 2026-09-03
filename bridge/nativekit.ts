@@ -657,6 +657,8 @@ const NativeKit: any = {
     showFloating: async (options: Record<string, unknown> = {}) => { feature('widget'); requireNative(); return Widget.showFloating(options); },
     hideFloating: async () => { feature('widget'); requireNative(); return Widget.hideFloating(); },
     isFloatingVisible: async () => { feature('widget'); requireNative(); return Widget.isFloatingVisible(); },
+    updateFloating: async (options: Record<string, unknown> = {}) => { feature('widget'); requireNative(); return Widget.updateFloating(options); },
+    runFloatingJavascript: async (script: string) => { feature('widget'); requireNative(); return Widget.runFloatingJavascript({ script }); },
     sendToFloating: async (data: unknown) => { feature('widget'); requireNative(); return Widget.sendToFloating({ data }); },
     onWidgetTap: (callback: (event: any) => void): Promise<Remove> => { feature('widget'); requireNative(); return Widget.addListener('nativeWidgetTap', callback); },
     onFloatingMessage: (callback: (event: any) => void): Promise<Remove> => { feature('widget'); requireNative(); return Widget.addListener('nativeFloatingMessage', callback); },

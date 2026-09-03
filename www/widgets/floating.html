@@ -60,6 +60,11 @@
     <button id="theme" class="ghost">Theme</button>
     <button id="close" class="ghost">✕ close</button>
   </div>
+  <div class="row">
+    <button id="stretch" class="ghost">↔ Stretch</button>
+    <button id="move" class="ghost">➜ Move</button>
+    <button id="collapse" class="ghost">▁ ▢</button>
+  </div>
   <div id="log"></div>
 
   <script>
@@ -127,6 +132,24 @@
         window.NativeKitFloating.postMessage(JSON.stringify({ type: 'widget.requestClose' }));
       }
     };
+
+    // ── Control the overlay itself from inside the page (full customization) ──
+    // window.NativeKitFloating.resize/move/collapse/expand/close are injected by the native service.
+    const ctl = (name, fn) => {
+      const btn = document.getElementById(name);
+      if (btn) btn.onclick = () => {
+        try {
+          if (typeof window.NativeKitFloating !== 'object' || !window.NativeKitFloating) {
+            say('NativeKitFloating bridge not injected (web preview).'); return;
+          }
+          fn(window.NativeKitFloating);
+          say('overlay control: ' + name);
+        } catch (e) { say('control failed: ' + e.message); }
+      };
+    };
+    ctl('stretch', (N) => N.resize(360, 300));
+    ctl('move', (N) => N.move(12, 160));
+    ctl('collapse', (N) => N.collapse());
 
     // React to external data injected right after the service loads it.
     window.__nativeKitFloatingApply('{"value":0,"label":"Web-rendered floating widget"}');

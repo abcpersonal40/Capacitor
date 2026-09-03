@@ -75,6 +75,19 @@ public class FloatingWidgetService extends Service {
     private JSONObject config = new JSONObject();
     private boolean expanded = false;
 
+    // -- Web-drivable layout/behavior config (re-read from config on every apply) -------------
+    private int gravity = Gravity.TOP | Gravity.START;
+    private int startX = 24;    // dp
+    private int startY = 96;    // dp
+    private boolean fullscreen = false;
+    private boolean focusable = false;
+    private boolean touchThrough = false;
+    private boolean chromeBar = true;
+    private boolean draggable = true;
+    private String inlineHtml = null;
+    private String lastPage = null;
+    private boolean htmlDirty = false;
+
     private int lastX, lastY;
     private float initialTouchX, initialTouchY;
     private long touchStartMs;
@@ -116,6 +129,59 @@ public class FloatingWidgetService extends Service {
         }
     }
 
+    /** Read the Web-drivable layout/behavior fields from the current config. Runs on every apply. */
+    private void readConfigFields() {
+        try {
+            fullscreen = config.optBoolean("fullscreen", false);
+            focusable = config.optBoolean("focusable", false);
+            touchThrough = config.optBoolean("touchThrough", false);
+            chromeBar = !"none".equalsIgnoreCase(config.optString("chrome", "bar"));
+            draggable = config.optBoolean("draggable", true);
+
+            org.json.JSONObject pos = config.optJSONObject("position");
+            if (pos != null) {
+                String g = pos.optString("gravity", "top");
+                String a = pos.optString("align", "start");
+                int vert = "center".equalsIgnoreCase(g) ? Gravity.CENTER_VERTICAL
+                        : "bottom".equalsIgnoreCase(g) ? Gravity.BOTTOM : Gravity.TOP;
+                int horiz = "center".equalsIgnoreCase(a) ? Gravity.CENTER_HORIZONTAL
+                        : "end".equalsIgnoreCase(a) ? Gravity.END : Gravity.START;
+                if (vert == Gravity.CENTER_VERTICAL && horiz == Gravity.CENTER_HORIZONTAL) {
+                    gravity = Gravity.CENTER;
+                } else {
+                    gravity = vert | horiz;
+                }
+                startX = pos.optInt("x", pos.optInt("marginX", 24));
+                startY = pos.optInt("y", pos.optInt("marginY", 96));
+            } else {
+                gravity = Gravity.TOP | Gravity.START;
+                startX = 24;
+                startY = 96;
+            }
+
+            String html = config.optString("html", null);
+            String page = config.optString("page", "public/widgets/floating.html");
+            if (html != null && !html.isEmpty()) {
+                // Switching FROM a previous page/html to a new html (or editing it) marks content dirty.
+                if (!html.equals(inlineHtml)) htmlDirty = true;
+                inlineHtml = html;
+            } else {
+                if (inlineHtml != null) htmlDirty = true; // dropped inline html -> back to page
+                inlineHtml = null;
+            }
+            if (!page.equals(lastPage)) {
+                htmlDirty = true;
+                lastPage = page;
+            }
+        } catch (Throwable error) {
+            Log.e(TAG, "readConfigFields failed", error);
+            // Keep safe defaults so a bad config never crashes the service.
+            gravity = Gravity.TOP | Gravity.START;
+            startX = 24;
+            startY = 96;
+        }
+    }
+
     /** Promote to foreground using the API-appropriate service type (or type-less below API 34). */
     private void promoteToForeground(Notification notification) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34 = Android 14
@@ -152,6 +218,7 @@ public class FloatingWidgetService extends Service {
             return;
         }
         config = WidgetStore.readConfig(this, "floating");
+        readConfigFields();
         registerCommandReceiver();
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         try {
@@ -171,7 +238,14 @@ public class FloatingWidgetService extends Service {
         if (intent != null && ACTION_START.equals(intent.getAction())) {
             // A fresh showFloating call may carry an updated config; re-read it.
             config = WidgetStore.readConfig(this, "floating");
-            applyConfig();
+            readConfigFields();
+            // If the bubble is already on screen, apply the geometry/chrome/html live instead of
+            // rebuilding the whole window (avoids flicker and keeps the WebView alive).
+            if (bubbleView != null && windowManager != null) {
+                applyLiveConfig();
+            } else {
+                applyConfig();
+            }
         }
         return START_STICKY;
     }
@@ -189,6 +263,12 @@ public class FloatingWidgetService extends Service {
                     pushToOverlay(intent.getStringExtra("data"));
                 } else if ("hide".equals(cmd)) {
                     stopSelf();
+                } else if ("update".equals(cmd)) {
+                    // updateFloating: re-read the stored config and live-apply geometry/chrome/html.
+                    config = WidgetStore.readConfig(context, "floating");
+                    postToMain(() -> applyLiveConfig());
+                } else if ("js".equals(cmd)) {
+                    runJavascript(intent.getStringExtra("script"));
                 }
             }
         };
@@ -235,28 +315,21 @@ public class FloatingWidgetService extends Service {
         // ClassCastException and silently killed the bubble). Just resize the actual params.
         ViewGroup.LayoutParams contentLp = contentView.getLayoutParams();
         if (contentLp != null) {
-            contentLp.width = width;
-            contentLp.height = height;
+            contentLp.width = fullscreen ? ViewGroup.LayoutParams.MATCH_PARENT : width;
+            contentLp.height = fullscreen ? ViewGroup.LayoutParams.MATCH_PARENT : height;
             contentView.setLayoutParams(contentLp);
         }
 
-        titleView.setText(config.optString("title", getString(R.string.nativekit_widget_title)));
-        attachDrag();
-
-        String page = config.optString("page", "public/widgets/floating.html");
-        if (page != null && !page.isEmpty()) {
-            WebView loaded = buildWebView();
-            if (loaded != null) {
-                webView = loaded;
-                contentView.addView(webView);
-            } else {
-                // WebView could not be created (low-end / renderer unavailable). Fall back to native.
-                Log.w(TAG, "WebView unavailable; rendering native floating content");
-                contentView.addView(buildNativeContent());
-            }
-        } else {
-            contentView.addView(buildNativeContent());
+        // chrome:'none' hides the native header so the developer's HTML fills the whole bubble.
+        if (!chromeBar && headerView != null) {
+            headerView.setVisibility(View.GONE);
         }
+
+        titleView.setText(config.optString("title", getString(R.string.nativekit_widget_title)));
+        if (draggable && chromeBar) attachDrag();
+
+        renderContent();
+
         // Respect the requested initial state. Default is EXPANDED so a "Show bubble" call
         // actually shows the panel (a collapsed bubble is only a small header bar that users on
         // low-end / Android 10 devices often read as 'nothing appeared'). Tap the header to
@@ -265,6 +338,43 @@ public class FloatingWidgetService extends Service {
         contentView.setVisibility(expanded ? View.VISIBLE : View.GONE);
         applyConfig();
         addToWindow();
+    }
+
+    /**
+     * Build (or rebuild) the HTML or native content and add it to the content view. Also handles
+     * inline {@code html} (loaded via loadDataWithBaseURL) vs a bundled {@code page} file.
+     */
+    private void renderContent() {
+        if (contentView == null) return;
+        try {
+            // Remove any previous child (WebView or native text) so updates swap cleanly, and
+            // destroy the old WebView to avoid leaking its renderer.
+            if (webView != null) {
+                try { webView.destroy(); } catch (Throwable ignored) {}
+                webView = null;
+            }
+            while (contentView.getChildCount() > 0) contentView.removeViewAt(0);
+
+            String page = config.optString("page", "public/widgets/floating.html");
+            if (page != null && !page.isEmpty() || inlineHtml != null) {
+                WebView loaded = buildWebView();
+                if (loaded != null) {
+                    webView = loaded;
+                    contentView.addView(webView);
+                } else {
+                    // WebView could not be created (low-end / renderer unavailable). Fall back to native.
+                    Log.w(TAG, "WebView unavailable; rendering native floating content");
+                    contentView.addView(buildNativeContent());
+                }
+            } else {
+                contentView.addView(buildNativeContent());
+            }
+            // Re-apply visibility after a rebuild (collapse state).
+            contentView.setVisibility(expanded ? View.VISIBLE : View.GONE);
+        } catch (Throwable error) {
+            Log.e(TAG, "renderContent failed", error);
+            try { if (contentView != null) contentView.addView(buildNativeContent()); } catch (Throwable ignored) {}
+        }
     }
 
     private View buildNativeContent() {
@@ -300,7 +410,16 @@ public class FloatingWidgetService extends Service {
             webView.setWebViewClient(createWebViewClient(assetLoader));
             webView.addJavascriptInterface(new NativeKitFloatingInterface(), "NativeKitFloating");
             String page = config.optString("page", "public/widgets/floating.html");
-            webView.loadUrl("https://appassets.androidplatform.net/" + page);
+            if (inlineHtml != null) {
+                // Inline HTML: base URL is the asset-loader host so relative ./assets still resolve.
+                webView.loadDataWithBaseURL("https://appassets.androidplatform.net/", inlineHtml,
+                        "text/html", "UTF-8", null);
+            } else if (page != null && !page.isEmpty()) {
+                webView.loadUrl("https://appassets.androidplatform.net/" + page);
+            } else {
+                // No content requested: load the default bundled page.
+                webView.loadUrl("https://appassets.androidplatform.net/public/widgets/floating.html");
+            }
             return webView;
         } catch (Throwable error) {
             Log.e(TAG, "buildWebView failed", error);
@@ -399,6 +518,85 @@ public class FloatingWidgetService extends Service {
         }
     }
 
+    /** Compute the overlay window flags from the current focusable / touchThrough / fullscreen state. */
+    private int computeWindowFlags() {
+        int flags = 0;
+        if (fullscreen) {
+            flags |= WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                    | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
+        }
+        if (!focusable) flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+        flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
+        if (touchThrough) flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+        return flags;
+    }
+
+    /**
+     * Live-apply a changed config (updateFloating / showFloating re-invoke on an existing bubble) so
+     * the bubble resizes/repositions/flags/chrome/html change without a flutter of the whole window.
+     */
+    private void applyLiveConfig() {
+        try {
+            readConfigFields();
+            final float density = getResources().getDisplayMetrics().density;
+
+            // Size + chrome.
+            if (contentView != null) {
+                ViewGroup.LayoutParams lp = contentView.getLayoutParams();
+                if (lp != null) {
+                    lp.width = fullscreen ? ViewGroup.LayoutParams.MATCH_PARENT
+                            : (int) (config.optInt("width", 240) * density);
+                    lp.height = fullscreen ? ViewGroup.LayoutParams.MATCH_PARENT
+                            : (int) (config.optInt("height", 220) * density);
+                    contentView.setLayoutParams(lp);
+                }
+            }
+            if (headerView != null) headerView.setVisibility(chromeBar ? View.VISIBLE : View.GONE);
+            if (titleView != null) titleView.setText(config.optString("title", getString(R.string.nativekit_widget_title)));
+
+            // Content swap (html / page change).
+            if (htmlDirty && contentView != null) {
+                renderContent();
+                htmlDirty = false;
+            }
+
+            // Window geometry + flags.
+            if (params != null && bubbleView != null && windowManager != null) {
+                params.gravity = gravity;
+                params.x = fullscreen ? 0 : dp(startX);
+                params.y = fullscreen ? 0 : dp(startY);
+                params.width = fullscreen ? WindowManager.LayoutParams.MATCH_PARENT : WindowManager.LayoutParams.WRAP_CONTENT;
+                params.height = fullscreen ? WindowManager.LayoutParams.MATCH_PARENT : WindowManager.LayoutParams.WRAP_CONTENT;
+                params.flags = computeWindowFlags();
+                windowManager.updateViewLayout(bubbleView, params);
+            }
+        } catch (Throwable error) {
+            Log.e(TAG, "applyLiveConfig failed", error);
+        }
+    }
+
+    /** Run arbitrary JavaScript inside the overlay WebView (if it is a WebView and it is expanded). */
+    private void runJavascript(String script) {
+        try {
+            if (webView != null) {
+                webView.evaluateJavascript(script == null ? "" : script, null);
+            } else {
+                Log.w(TAG, "runJavascript: no WebView to run on");
+            }
+        } catch (Throwable error) {
+            Log.e(TAG, "runJavascript failed", error);
+        }
+    }
+
+    /** Synchronously schedule work on the main thread (JS-interface callbacks arrive on a JS thread). */
+    private void postToMain(Runnable runnable) {
+        try {
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(runnable);
+        } catch (Throwable error) {
+            Log.e(TAG, "postToMain failed", error);
+        }
+    }
+
     private void attachDrag() {
         headerView.setOnTouchListener(new View.OnTouchListener() {
             @Override public boolean onTouch(View v, MotionEvent event) {
@@ -462,22 +660,23 @@ public class FloatingWidgetService extends Service {
         int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 : WindowManager.LayoutParams.TYPE_PHONE;
-        int flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
+        int flags = computeWindowFlags();
+        int w = fullscreen ? WindowManager.LayoutParams.MATCH_PARENT : WindowManager.LayoutParams.WRAP_CONTENT;
+        int h = fullscreen ? WindowManager.LayoutParams.MATCH_PARENT : WindowManager.LayoutParams.WRAP_CONTENT;
         params = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
+                w, h,
                 type,
                 flags,
                 PixelFormat.TRANSLUCENT);
-        params.gravity = Gravity.TOP | Gravity.START;
-        params.x = dp(24);
-        params.y = dp(96);
+        params.gravity = gravity;
+        params.x = fullscreen ? 0 : dp(startX);
+        params.y = fullscreen ? 0 : dp(startY);
         bubbleView.setOnTouchListener(null); // drag only via header
         try {
             windowManager.addView(bubbleView, params);
             recordOutcome(true, true, null);
-            Log.i(TAG, "floating bubble overlay attached (type=" + type + ", x=" + params.x + ", y=" + params.y + ")");
+            Log.i(TAG, "floating bubble overlay attached (type=" + type + ", x=" + params.x + ", y=" + params.y
+                    + ", fullscreen=" + fullscreen + ", chromeBar=" + chromeBar + ")");
         } catch (Throwable error) {
             // BadTokenException / SecurityException (no overlay permission) or Surface issues.
             String msg = "addView: " + (error == null ? "unknown" : error.getClass().getSimpleName() + ": " + error.getMessage());
@@ -488,7 +687,7 @@ public class FloatingWidgetService extends Service {
         }
     }
 
-    // -- Overlay -> app bridge (page calls window.NativeKitFloating.postMessage) --
+    // -- Overlay -> app bridge (page calls window.NativeKitFloating.*) --
     private final class NativeKitFloatingInterface {
         @android.webkit.JavascriptInterface
         public void postMessage(String message) {
@@ -500,6 +699,76 @@ public class FloatingWidgetService extends Service {
             } catch (Throwable error) {
                 Log.e(TAG, "postMessage broadcast failed", error);
             }
+        }
+
+        /** Resize the bubble content in dp. No-op when the window is full-screen. */
+        @android.webkit.JavascriptInterface
+        public void resize(double width, double height) {
+            postToMain(() -> {
+                try {
+                    if (contentView == null) return;
+                    final float density = getResources().getDisplayMetrics().density;
+                    ViewGroup.LayoutParams lp = contentView.getLayoutParams();
+                    if (lp != null) {
+                        lp.width = (int) (width * density);
+                        lp.height = (int) (height * density);
+                        contentView.setLayoutParams(lp);
+                    }
+                    if (params != null && bubbleView != null && windowManager != null) {
+                        windowManager.updateViewLayout(bubbleView, params);
+                    }
+                } catch (Throwable error) {
+                    Log.e(TAG, "resize failed", error);
+                }
+            });
+        }
+
+        /** Reposition the overlay to the given dp offsets from its current gravity anchor. */
+        @android.webkit.JavascriptInterface
+        public void move(double x, double y) {
+            postToMain(() -> {
+                try {
+                    if (params != null && bubbleView != null && windowManager != null) {
+                        params.x = dp((int) x);
+                        params.y = dp((int) y);
+                        windowManager.updateViewLayout(bubbleView, params);
+                    }
+                } catch (Throwable error) {
+                    Log.e(TAG, "move failed", error);
+                }
+            });
+        }
+
+        /** Collapse the content down to the small handle. */
+        @android.webkit.JavascriptInterface
+        public void collapse() {
+            postToMain(() -> setExpanded(false));
+        }
+
+        /** Expand the content panel. */
+        @android.webkit.JavascriptInterface
+        public void expand() {
+            postToMain(() -> setExpanded(true));
+        }
+
+        /** Ask the native service to hide/stop the overlay. */
+        @android.webkit.JavascriptInterface
+        public void close() {
+            postToMain(() -> { try { stopSelf(); } catch (Throwable ignored) {} });
+        }
+    }
+
+    private void setExpanded(boolean value) {
+        expanded = value;
+        if (contentView != null) {
+            contentView.setVisibility(expanded ? View.VISIBLE : View.GONE);
+        }
+        try {
+            if (bubbleView != null && windowManager != null) {
+                windowManager.updateViewLayout(bubbleView, params);
+            }
+        } catch (Throwable error) {
+            Log.e(TAG, "setExpanded failed", error);
         }
     }
 

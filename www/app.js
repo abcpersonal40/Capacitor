@@ -187,6 +187,30 @@ const actions = {
     return { pushed: widgetCount, delivered: res.delivered, running: res.running, hint: res.delivered ? null : 'Bubble এখন দেখা যাচ্ছে না — আগে Show bubble দিন।' };
   },
   floathide: () => window.NativeKit.widget.hideFloating(),
+  floatpos: async () => {
+    const perm = await window.NativeKit.widget.checkFloatingPermission();
+    if (!perm.granted) return { running: false, hint: 'আগে permit দিন।' };
+    return window.NativeKit.widget.showFloating({ page: 'public/widgets/floating.html', width: 200, height: 160, data: { value: widgetCount }, position: { gravity: 'bottom', align: 'end', marginX: 16, marginY: 16 } });
+  },
+  floatfull: async () => {
+    const perm = await window.NativeKit.widget.checkFloatingPermission();
+    if (!perm.granted) return { running: false, hint: 'আগে permit দিন।' };
+    return window.NativeKit.widget.showFloating({ fullscreen: true, chrome: 'none', page: 'public/widgets/floating.html', data: { value: widgetCount } });
+  },
+  floatchrome: async () => {
+    const perm = await window.NativeKit.widget.checkFloatingPermission();
+    if (!perm.granted) return { running: false, hint: 'আগে permit দিন।' };
+    const html = '<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:linear-gradient(160deg,#7c3aed,#2563eb);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui;user-select:none;text-align:center}button{margin-top:10px;border:0;border-radius:999px;padding:8px 14px;font-weight:700}</style></head><body><div style="font-size:40px">🎨</div><div>chrome:"none" + inline html</div><button onclick="window.NativeKitFloating.close()">✕ close</button></body></html>';
+    return window.NativeKit.widget.showFloating({ chrome: 'none', draggable: false, width: 220, height: 200, html, data: { value: widgetCount } });
+  },
+  floatupdate: async () => {
+    const res = await window.NativeKit.widget.updateFloating({ width: 320, height: 260, position: { gravity: 'center', align: 'center' } });
+    return { ...res, hint: 'Bubble-টা resize ও center-এ move করা হলো (নতুন আবার show না করেই)।' };
+  },
+  floatjs: async () => {
+    const res = await window.NativeKit.widget.runFloatingJavascript("document.body.style.background='linear-gradient(180deg,#0f172a,#0b1220)'; var el=document.getElementById('value'); if(el) el.textContent='JS⏺';");
+    return { ...res, hint: 'Overlay-র WebView-এ arbitrary JS ঢোকানো হলো।' };
+  },
   widgetlisten: async () => {
     if (widgetListenersWired) return { wired: true, hint: 'Listeners ইতিমধ্যেই active।' };
     widgetListenersWired = true;

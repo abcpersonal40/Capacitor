@@ -303,6 +303,55 @@ public class NativeKitWidgetPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void updateFloating(PluginCall call) {
+        // Live-update the floating overlay's layout/behavior/chrome/html without restarting the
+        // service or rebuilding the WebView. The given options are deep-merged over the previously
+        // stored "floating" config, so callers only need to pass the fields they change.
+        try {
+            JSObject patch = call.getData();
+            WidgetStore store = new WidgetStore(getContext());
+            JSONObject current = store.getConfig("floating");
+            if (current == null) current = new JSONObject();
+            mergeJSON(current, patch);
+            store.setConfig("floating", current);
+
+            Intent command = new Intent(ACTION_FLOATING_COMMAND);
+            command.setPackage(getContext().getPackageName());
+            command.putExtra("cmd", "update");
+            getContext().sendBroadcast(command);
+
+            boolean running = FloatingWidgetService.isRunning();
+            boolean shown = FloatingWidgetService.isShown();
+            JSObject result = new JSObject();
+            result.put("delivered", running && shown);
+            result.put("running", running);
+            result.put("shown", shown);
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("updateFloating failed", error);
+        }
+    }
+
+    @PluginMethod
+    public void runFloatingJavascript(PluginCall call) {
+        String script = call.getString("script");
+        if (script == null || script.isEmpty()) {
+            call.reject("script is required");
+            return;
+        }
+        Intent command = new Intent(ACTION_FLOATING_COMMAND);
+        command.setPackage(getContext().getPackageName());
+        command.putExtra("cmd", "js");
+        command.putExtra("script", script);
+        getContext().sendBroadcast(command);
+        boolean shown = FloatingWidgetService.isShown();
+        JSObject result = new JSObject();
+        result.put("delivered", shown);
+        result.put("running", FloatingWidgetService.isRunning());
+        call.resolve(result);
+    }
+
+    @PluginMethod
     public void sendToFloating(PluginCall call) {
         // Capacitor 8 PluginCall has no get(String); read the whole call and pull "data".
         Object data = call.getData().opt("data");
@@ -324,6 +373,25 @@ public class NativeKitWidgetPlugin extends Plugin {
     }
 
     // -- Helpers ----------------------------------------------------------------
+
+    /** Deep-merge a patch JSONObject into a target JSONObject (nested objects merge recursively). */
+    private static void mergeJSON(JSONObject target, JSONObject patch) {
+        if (target == null || patch == null) return;
+        @SuppressWarnings("unchecked")
+        java.util.Iterator<String> keys = patch.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            Object value = patch.opt(key);
+            if (value instanceof JSONObject) {
+                JSONObject nested = target.optJSONObject(key);
+                if (nested == null) nested = new JSONObject();
+                target.put(key, nested);
+                mergeJSON(nested, (JSONObject) value);
+            } else {
+                target.put(key, value);
+            }
+        }
+    }
 
     private ComponentName providerComponent(String kind) {
         String pkg = getContext().getPackageName();
