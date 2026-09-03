@@ -25,6 +25,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        installCrashLogger();
         super.onCreate(savedInstanceState);
 
         // BLEND MODE (owner-tested): transparent system bars must carry the PAGE
@@ -57,6 +58,41 @@ public class MainActivity extends BridgeActivity {
                 injectSafeAreaCss();
             }
         });
+    }
+
+    // Capture any uncaught exception in the app process to a durable file + Logcat so a
+    // background/foreground crash (e.g. a widget provider render or the floating service)
+    // can be inspected on-device even though the app "just closes". We write first, then
+    // delegate to the previous handler so normal crash reporting still runs.
+    private void installCrashLogger() {
+        try {
+            final Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
+            Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+                try {
+                    String nl = System.lineSeparator();
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("=== NativeKit crash ").append(new java.util.Date()).append(" ===").append(nl);
+                    sb.append("thread: ").append(thread == null ? "?" : thread.getName()).append(nl);
+                    String stack = android.util.Log.getStackTraceString(throwable);
+                    sb.append(stack).append(nl).append(nl);
+                    java.io.File dir = getExternalFilesDir(null);
+                    if (dir == null) dir = getFilesDir();
+                    if (dir != null) {
+                        java.io.File f = new java.io.File(dir, "nk_crash.log");
+                        java.io.FileWriter writer = null;
+                        try {
+                            writer = new java.io.FileWriter(f, true);
+                            writer.write(sb.toString());
+                        } finally {
+                            if (writer != null) writer.close();
+                        }
+                    }
+                    android.util.Log.e("NativeKit", "Uncaught exception captured:" + nl + stack);
+                } catch (Throwable ignored) {}
+                if (previous != null) previous.uncaughtException(thread, throwable);
+                else android.os.Process.killProcess(android.os.Process.myPid());
+            });
+        } catch (Throwable ignored) {}
     }
 
     private void applyBlendWindow() {

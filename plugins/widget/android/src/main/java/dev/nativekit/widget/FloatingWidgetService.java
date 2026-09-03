@@ -13,6 +13,7 @@ import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.os.Build;
 import android.os.IBinder;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -20,6 +21,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewConfiguration;
 import android.view.WindowManager;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
@@ -38,8 +40,15 @@ import org.json.JSONObject;
  * the developer can build a rich floating widget with HTML/CSS/JS. Two-way messaging is
  * bridged: the page calls window.NativeKitFloating.postMessage(...) (native -> 'nativeFloatingMessage'
  * event) and the app pushes data with NativeKit.widget.sendToFloating() (native -> window.__nativeKitFloatingApply).
+ *
+ * <p>This service runs in the app's process; on low-end / Android 10 devices a WebView can be
+ * killed for memory or fail to promote to foreground. Every risky step is therefore guarded so a
+ * bubbling overlay can never take the whole app down — on failure we log and fall back (e.g. to
+ * native text content) or stop cleanly instead of crashing.
  */
 public class FloatingWidgetService extends Service {
+
+    private static final String TAG = "NativeKitFloat";
 
     static final String ACTION_START = "dev.nativekit.widget.FLOATING_START";
     private static final String ACTION_COMMAND = "dev.nativekit.widget.ACTION_FLOATING_COMMAND";
@@ -72,13 +81,27 @@ public class FloatingWidgetService extends Service {
     public void onCreate() {
         super.onCreate();
         running = true;
-        createChannel();
-        startForeground(NOTIFICATION_ID, buildNotification());
+        try {
+            createChannel();
+            startForeground(NOTIFICATION_ID, buildNotification());
+        } catch (Throwable error) {
+            // Foreground promotion failed (rare on low-end / OEM builds, or a missing permission).
+            // Rather than crash the app, bail out and let onDestroy tidy up.
+            Log.e(TAG, "startForeground failed; stopping floating service", error);
+            running = false;
+            stopSelf();
+            return;
+        }
         config = WidgetStore.readConfig(this, "floating");
         registerCommandReceiver();
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-        buildBubble();
-        addToWindow();
+        try {
+            buildBubble();
+        } catch (Throwable error) {
+            Log.e(TAG, "buildBubble failed; stopping floating service", error);
+            running = false;
+            stopSelf();
+        }
     }
 
     @Override
@@ -107,22 +130,30 @@ public class FloatingWidgetService extends Service {
                 }
             }
         };
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(commandReceiver, new IntentFilter(ACTION_COMMAND), Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(commandReceiver, new IntentFilter(ACTION_COMMAND));
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(commandReceiver, new IntentFilter(ACTION_COMMAND), Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(commandReceiver, new IntentFilter(ACTION_COMMAND));
+            }
+        } catch (Throwable error) {
+            Log.e(TAG, "registerReceiver failed", error);
         }
     }
 
     private void pushToOverlay(String data) {
-        if (webView != null && expanded) {
-            String script = "window.__nativeKitFloatingApply && window.__nativeKitFloatingApply("
-                    + JSONObject.quote(data == null ? "" : data) + ");";
-            webView.evaluateJavascript(script, null);
-        } else {
-            TextView value = bubbleView != null ? bubbleView.findViewById(R.id.widget_value) : null;
-            // Reuse the widget_value id inside the bubble content when in native mode.
-            if (value != null) value.setText(data == null ? "" : data);
+        try {
+            if (webView != null && expanded) {
+                String script = "window.__nativeKitFloatingApply && window.__nativeKitFloatingApply("
+                        + JSONObject.quote(data == null ? "" : data) + ");";
+                webView.evaluateJavascript(script, null);
+            } else {
+                TextView value = bubbleView != null ? bubbleView.findViewById(R.id.widget_value) : null;
+                // Reuse the widget_value id inside the bubble content when in native mode.
+                if (value != null) value.setText(data == null ? "" : data);
+            }
+        } catch (Throwable error) {
+            Log.e(TAG, "pushToOverlay failed", error);
         }
     }
 
@@ -149,8 +180,15 @@ public class FloatingWidgetService extends Service {
 
         String page = config.optString("page", "public/widgets/floating.html");
         if (page != null && !page.isEmpty()) {
-            webView = buildWebView();
-            contentView.addView(webView);
+            WebView loaded = buildWebView();
+            if (loaded != null) {
+                webView = loaded;
+                contentView.addView(webView);
+            } else {
+                // WebView could not be created (low-end / renderer unavailable). Fall back to native.
+                Log.w(TAG, "WebView unavailable; rendering native floating content");
+                contentView.addView(buildNativeContent());
+            }
         } else {
             contentView.addView(buildNativeContent());
         }
@@ -158,6 +196,7 @@ public class FloatingWidgetService extends Service {
         expanded = !config.optBoolean("collapsed", true);
         contentView.setVisibility(expanded ? View.VISIBLE : View.GONE);
         applyConfig();
+        addToWindow();
     }
 
     private View buildNativeContent() {
@@ -179,38 +218,117 @@ public class FloatingWidgetService extends Service {
     }
 
     private WebView buildWebView() {
-        WebView webView = new WebView(this);
-        webView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        webView.getSettings().setJavaScriptEnabled(true);
-        webView.getSettings().setDomStorageEnabled(true);
-        webView.getSettings().setAllowFileAccess(true);
-        webView.setBackgroundColor(Color.TRANSPARENT);
-        final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
-                .setDomain("appassets.androidplatform.net")
-                .addPathHandler("/", new WebViewAssetLoader.AssetsPathHandler(this))
-                .build();
-        webView.setWebViewClient(new WebViewClient() {
+        try {
+            WebView webView = new WebView(this);
+            webView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            webView.getSettings().setJavaScriptEnabled(true);
+            webView.getSettings().setDomStorageEnabled(true);
+            webView.getSettings().setAllowFileAccess(true);
+            webView.setBackgroundColor(Color.TRANSPARENT);
+            final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+                    .setDomain("appassets.androidplatform.net")
+                    .addPathHandler("/", new WebViewAssetLoader.AssetsPathHandler(this))
+                    .build();
+            webView.setWebViewClient(createWebViewClient(assetLoader));
+            webView.addJavascriptInterface(new NativeKitFloatingInterface(), "NativeKitFloating");
+            String page = config.optString("page", "public/widgets/floating.html");
+            webView.loadUrl("https://appassets.androidplatform.net/" + page);
+            return webView;
+        } catch (Throwable error) {
+            Log.e(TAG, "buildWebView failed", error);
+            return null;
+        }
+    }
+
+    /**
+     * Create the WebViewClient. The renderer-gone handler references the API 26+ type
+     * RenderProcessGoneDetail, so it is only attached on API 26+ (which includes Android 10) —
+     * this keeps the class loadable on the minSdk 24 devices (no NoClassDefFoundError).
+     */
+    private WebViewClient createWebViewClient(final WebViewAssetLoader assetLoader) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return new WebViewClient() {
+                @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                    try {
+                        return assetLoader.shouldInterceptRequest(request.getUrl());
+                    } catch (Throwable error) {
+                        Log.e(TAG, "shouldInterceptRequest failed", error);
+                        return null;
+                    }
+                }
+                @Override public void onPageFinished(WebView view, String url) {
+                    pushInitialData(view);
+                }
+                // On low-end devices Android may kill the WebView's renderer to reclaim memory.
+                // Handle it instead of letting the whole app process die: rebuild the bubble.
+                @Override public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                    Log.e(TAG, "WebView renderer gone (didCrash=" + detail.didCrash() + "); rebuilding bubble");
+                    rebuildWebView();
+                    return true; // we handled it; do not crash the app
+                }
+            };
+        }
+        return new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                return assetLoader.shouldInterceptRequest(request.getUrl());
-            }
-            @Override public void onPageFinished(WebView view, String url) {
-                // Push the initial data handed to showFloating({ data }) once the page is ready.
-                JSONObject data = config.optJSONObject("data");
-                if (data != null) {
-                    String script = "window.__nativeKitFloatingApply && window.__nativeKitFloatingApply("
-                            + JSONObject.quote(data.toString()) + ");";
-                    view.evaluateJavascript(script, null);
+                try {
+                    return assetLoader.shouldInterceptRequest(request.getUrl());
+                } catch (Throwable error) {
+                    Log.e(TAG, "shouldInterceptRequest failed", error);
+                    return null;
                 }
             }
-        });
-        webView.addJavascriptInterface(new NativeKitFloatingInterface(), "NativeKitFloating");
-        String page = config.optString("page", "public/widgets/floating.html");
-        webView.loadUrl("https://appassets.androidplatform.net/" + page);
-        return webView;
+            @Override public void onPageFinished(WebView view, String url) {
+                pushInitialData(view);
+            }
+        };
+    }
+
+    private void pushInitialData(WebView view) {
+        try {
+            // Push the initial data handed to showFloating({ data }) once the page is ready.
+            JSONObject data = config.optJSONObject("data");
+            if (data != null) {
+                String script = "window.__nativeKitFloatingApply && window.__nativeKitFloatingApply("
+                        + JSONObject.quote(data.toString()) + ");";
+                view.evaluateJavascript(script, null);
+            }
+        } catch (Throwable error) {
+            Log.e(TAG, "pushInitialData failed", error);
+        }
+    }
+
+    private void rebuildWebView() {
+        try {
+            android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+            handler.post(() -> {
+                try {
+                    if (webView != null) {
+                        ViewGroup parent = (ViewGroup) webView.getParent();
+                        if (parent != null) parent.removeView(webView);
+                        webView.destroy();
+                        webView = null;
+                    }
+                    WebView replacement = buildWebView();
+                    if (replacement != null && contentView != null) {
+                        webView = replacement;
+                        contentView.addView(webView);
+                    }
+                } catch (Throwable error) {
+                    Log.e(TAG, "rebuild after renderer gone failed", error);
+                }
+            });
+        } catch (Throwable error) {
+            Log.e(TAG, "schedule rebuild failed", error);
+        }
     }
 
     private void applyConfig() {
-        titleView.setText(config.optString("title", getString(R.string.nativekit_widget_title)));
+        if (titleView == null) return;
+        try {
+            titleView.setText(config.optString("title", getString(R.string.nativekit_widget_title)));
+        } catch (Throwable error) {
+            Log.e(TAG, "applyConfig failed", error);
+        }
     }
 
     private void attachDrag() {
@@ -235,7 +353,11 @@ public class FloatingWidgetService extends Service {
                         if (dragging) {
                             params.x = lastX + dx;
                             params.y = lastY + dy;
-                            windowManager.updateViewLayout(bubbleView, params);
+                            try {
+                                windowManager.updateViewLayout(bubbleView, params);
+                            } catch (Throwable error) {
+                                Log.e(TAG, "updateViewLayout (drag) failed", error);
+                            }
                         }
                         return true;
                     case MotionEvent.ACTION_UP:
@@ -248,7 +370,9 @@ public class FloatingWidgetService extends Service {
             }
         });
         closeView.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { stopSelf(); }
+            @Override public void onClick(View v) {
+                try { stopSelf(); } catch (Throwable ignored) {}
+            }
         });
     }
 
@@ -258,7 +382,11 @@ public class FloatingWidgetService extends Service {
             contentView.setVisibility(expanded ? View.VISIBLE : View.GONE);
         }
         // Keep the window sized to its content.
-        windowManager.updateViewLayout(bubbleView, params);
+        try {
+            windowManager.updateViewLayout(bubbleView, params);
+        } catch (Throwable error) {
+            Log.e(TAG, "updateViewLayout (toggle) failed", error);
+        }
     }
 
     @SuppressWarnings("deprecation") // TYPE_PHONE is the only overlay type available before Android 8.
@@ -278,7 +406,14 @@ public class FloatingWidgetService extends Service {
         params.x = dp(24);
         params.y = dp(96);
         bubbleView.setOnTouchListener(null); // drag only via header
-        windowManager.addView(bubbleView, params);
+        try {
+            windowManager.addView(bubbleView, params);
+        } catch (Throwable error) {
+            // BadTokenException / SecurityException (no overlay permission) or Surface issues.
+            Log.e(TAG, "addView to overlay failed", error);
+            running = false;
+            stopSelf();
+        }
     }
 
     // -- Overlay -> app bridge (page calls window.NativeKitFloating.postMessage) --
@@ -288,7 +423,11 @@ public class FloatingWidgetService extends Service {
             Intent out = new Intent(ACTION_MESSAGE);
             out.setPackage(getPackageName());
             out.putExtra("data", message == null ? "" : message);
-            sendBroadcast(out);
+            try {
+                sendBroadcast(out);
+            } catch (Throwable error) {
+                Log.e(TAG, "postMessage broadcast failed", error);
+            }
         }
     }
 
@@ -303,7 +442,16 @@ public class FloatingWidgetService extends Service {
                 .setOngoing(true)
                 .setSilent(true)
                 .setContentIntent(contentIntent);
-        return builder.build();
+        try {
+            return builder.build();
+        } catch (Throwable error) {
+            Log.e(TAG, "buildNotification failed; using minimal notification", error);
+            return new NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setSmallIcon(android.R.drawable.ic_menu_info_details)
+                    .setContentTitle(getString(R.string.nativekit_widget_title))
+                    .setOngoing(true)
+                    .build();
+        }
     }
 
     private void createChannel() {
@@ -331,8 +479,10 @@ public class FloatingWidgetService extends Service {
             try { windowManager.removeView(bubbleView); } catch (Exception ignored) {}
             bubbleView = null;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(Service.STOP_FOREGROUND_REMOVE);
-        else stopForeground(true);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(Service.STOP_FOREGROUND_REMOVE);
+            else stopForeground(true);
+        } catch (Throwable ignored) {}
         super.onDestroy();
     }
 

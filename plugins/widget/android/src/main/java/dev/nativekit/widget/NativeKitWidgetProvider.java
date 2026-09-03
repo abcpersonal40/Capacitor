@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.Context;
 import android.content.Intent;
+import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
 import org.json.JSONObject;
@@ -14,8 +15,15 @@ import org.json.JSONObject;
  * generates one tiny subclass per declared home-screen kind in the app package, so each widget
  * keeps its own unique provider ComponentName (required by Android) while sharing all rendering
  * logic here. The rendering reads the kind's stored spec from WidgetStore.
+ *
+ * <p>AppWidgetProvider callbacks run inside the app's own process, so an uncaught exception here
+ * (a bad config value, a missing view id, a malformed color) would crash the whole app — appearing
+ * to users as "the app closes when I open it". Every render is therefore wrapped so a widget can
+ * never take the app down: failures are logged and the render is skipped instead.
  */
 public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
+
+    private static final String TAG = "NativeKitWidget";
 
     /** Custom tap action used when a widget action button is pressed. */
     static final String ACTION_TAP = "dev.nativekit.widget.ACTION_WIDGET_TAP";
@@ -26,36 +34,57 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
-        JSONObject config = WidgetStore.readConfig(context, kind());
+        JSONObject config;
+        try {
+            config = WidgetStore.readConfig(context, kind());
+        } catch (Exception error) {
+            Log.e(TAG, "readConfig failed for kind '" + kind() + "'", error);
+            config = new JSONObject();
+        }
+        if (appWidgetIds == null) return;
         for (int appWidgetId : appWidgetIds) {
-            render(context, manager, appWidgetId, config);
+            try {
+                render(context, manager, appWidgetId, config);
+            } catch (Throwable error) {
+                // Never let a widget render error take the app process down.
+                Log.e(TAG, "render failed for kind '" + kind() + "' widget " + appWidgetId, error);
+            }
         }
     }
 
     @Override
     public void onAppWidgetOptionsChanged(Context context, AppWidgetManager manager, int appWidgetId, android.os.Bundle newOptions) {
         super.onAppWidgetOptionsChanged(context, manager, appWidgetId, newOptions);
-        render(context, manager, appWidgetId, WidgetStore.readConfig(context, kind()));
+        try {
+            render(context, manager, appWidgetId, WidgetStore.readConfig(context, kind()));
+        } catch (Throwable error) {
+            Log.e(TAG, "onAppWidgetOptionsChanged render failed for widget " + appWidgetId, error);
+        }
     }
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        super.onReceive(context, intent);
-        if (ACTION_TAP.equals(intent.getAction())) {
-            // Forward the tap to the host plugin's dynamic receiver so it becomes a
-            // "nativeWidgetTap" event in the web bridge. Scoped to our own package so no
-            // other process can spoof it.
-            Intent forward = new Intent(ACTION_TAP);
-            forward.setPackage(context.getPackageName());
-            forward.putExtra("kind", kind());
-            if (intent.hasExtra("action")) forward.putExtra("action", intent.getStringExtra("action"));
-            if (intent.hasExtra("value")) forward.putExtra("value", intent.getStringExtra("value"));
-            if (intent.hasExtra("id")) forward.putExtra("id", intent.getIntExtra("id", 0));
-            context.sendBroadcast(forward);
+        try {
+            super.onReceive(context, intent);
+            if (ACTION_TAP.equals(intent.getAction())) {
+                // Forward the tap to the host plugin's dynamic receiver so it becomes a
+                // "nativeWidgetTap" event in the web bridge. Scoped to our own package so no
+                // other process can spoof it.
+                Intent forward = new Intent(ACTION_TAP);
+                forward.setPackage(context.getPackageName());
+                forward.putExtra("kind", kind());
+                if (intent.hasExtra("action")) forward.putExtra("action", intent.getStringExtra("action"));
+                if (intent.hasExtra("value")) forward.putExtra("value", intent.getStringExtra("value"));
+                if (intent.hasExtra("id")) forward.putExtra("id", intent.getIntExtra("id", 0));
+                context.sendBroadcast(forward);
+            }
+        } catch (Throwable error) {
+            Log.e(TAG, "onReceive failed for kind '" + kind() + "'", error);
         }
     }
 
     private void render(Context context, AppWidgetManager manager, int appWidgetId, JSONObject config) {
+        if (config == null) config = new JSONObject();
         String layoutName = config.optString("layout", "medium");
         int layoutRes;
         switch (layoutName) {
@@ -66,53 +95,89 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
         RemoteViews views = new RemoteViews(context.getPackageName(), layoutRes);
 
         boolean has = config.has("value");
-        views.setViewVisibility(R.id.widget_value, has ? View.VISIBLE : View.GONE);
-        views.setTextViewText(R.id.widget_value, config.optString("value", ""));
+        setText(views, R.id.widget_value, config.optString("value", ""), has);
 
-        views.setTextViewText(R.id.widget_title, config.optString("title",
-                context.getString(R.string.nativekit_widget_title)));
+        setText(views, R.id.widget_title, config.optString("title",
+                context.getString(R.string.nativekit_widget_title)), true);
 
-        views.setTextViewText(R.id.widget_subtitle, config.optString("subtitle", ""));
-        views.setViewVisibility(R.id.widget_subtitle, config.has("subtitle") ? View.VISIBLE : View.GONE);
+        setText(views, R.id.widget_subtitle, config.optString("subtitle", ""), config.has("subtitle"));
 
-        views.setTextViewText(R.id.widget_icon, config.optString("icon", ""));
-        views.setViewVisibility(R.id.widget_icon, config.has("icon") && !config.optString("icon", "").isEmpty()
-                ? View.VISIBLE : View.GONE);
+        // Icon is optional; only touch it when it is actually demanded so layouts without the
+        // view (or empty values) never throw. All shipped layouts now include widget_icon, but
+        // third-party renders / future small layouts may not.
+        String icon = config.optString("icon", "");
+        boolean showIcon = config.has("icon") && !icon.isEmpty();
+        safe(views, R.id.widget_icon, () -> {
+            views.setTextViewText(R.id.widget_icon, icon);
+            views.setViewVisibility(R.id.widget_icon, showIcon ? View.VISIBLE : View.GONE);
+        });
 
         // Colors are passed as hex strings to stay clear of Java int-overflow issues.
-        views.setInt(R.id.widget_root, "setBackgroundColor",
-                WidgetStore.color(config, "backgroundColor", 0xFF0F172A));
-        views.setTextColor(R.id.widget_value,
-                WidgetStore.color(config, "accentColor", 0xFF4FC3F7));
-        views.setTextColor(R.id.widget_title, 0xFFFFFFFF);
-        views.setTextColor(R.id.widget_subtitle, 0xFFB0BEC5);
+        safe(views, R.id.widget_root, () -> views.setInt(R.id.widget_root, "setBackgroundColor",
+                WidgetStore.color(config, "backgroundColor", 0xFF0F172A)));
+        safe(views, R.id.widget_value, () -> views.setTextColor(R.id.widget_value,
+                WidgetStore.color(config, "accentColor", 0xFF4FC3F7)));
+        safe(views, R.id.widget_title, () -> views.setTextColor(R.id.widget_title, 0xFFFFFFFF));
+        safe(views, R.id.widget_subtitle, () -> views.setTextColor(R.id.widget_subtitle, 0xFFB0BEC5));
 
         // Whole widget tap -> open the app (always works, even when the web bridge is not up yet).
         Intent open = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
         if (open != null) {
             open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            PendingIntent openPi = PendingIntent.getActivity(context, requestCode(kind(), 1), open,
-                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            views.setOnClickPendingIntent(R.id.widget_root, openPi);
+            try {
+                PendingIntent openPi = PendingIntent.getActivity(context, requestCode(kind(), 1), open,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                safe(views, R.id.widget_root, () -> views.setOnClickPendingIntent(R.id.widget_root, openPi));
+            } catch (Throwable error) {
+                Log.e(TAG, "open pending intent failed", error);
+            }
         }
 
         // Optional dedicated action button -> emits nativeWidgetTap with the action payload.
-        if (config.has("action")) {
+        if (config.has("action") && !config.optString("action", "").isEmpty()) {
             Intent tap = new Intent(context, getClass()).setAction(ACTION_TAP);
             tap.putExtra("id", appWidgetId);
             tap.putExtra("action", config.optString("action"));
             if (config.has("actionValue")) tap.putExtra("value", config.optString("actionValue"));
-            PendingIntent tapPi = PendingIntent.getBroadcast(context, requestCode(kind(), 2), tap,
-                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            views.setOnClickPendingIntent(R.id.widget_button, tapPi);
-            views.setViewVisibility(R.id.widget_button, View.VISIBLE);
-            views.setTextViewText(R.id.widget_button, config.optString("buttonLabel",
-                    context.getString(R.string.nativekit_widget_open)));
+            try {
+                PendingIntent tapPi = PendingIntent.getBroadcast(context, requestCode(kind(), 2), tap,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                safe(views, R.id.widget_button, () -> {
+                    views.setOnClickPendingIntent(R.id.widget_button, tapPi);
+                    views.setViewVisibility(R.id.widget_button, View.VISIBLE);
+                    views.setTextViewText(R.id.widget_button, config.optString("buttonLabel",
+                            context.getString(R.string.nativekit_widget_open)));
+                });
+            } catch (Throwable error) {
+                Log.e(TAG, "opening pending intent failed", error);
+            }
         } else {
-            views.setViewVisibility(R.id.widget_button, View.GONE);
+            safe(views, R.id.widget_button, () -> views.setViewVisibility(R.id.widget_button, View.GONE));
         }
 
-        manager.updateAppWidget(appWidgetId, views);
+        // Guard the final commit so a process death never results from a bad widget config.
+        try {
+            manager.updateAppWidget(appWidgetId, views);
+        } catch (Throwable error) {
+            Log.e(TAG, "updateAppWidget failed for widget " + appWidgetId, error);
+        }
+    }
+
+    /** Apply a view action but never throw (a missing view id / bad value is logged and skipped). */
+    private void safe(RemoteViews views, int id, Runnable action) {
+        try {
+            action.run();
+        } catch (Throwable error) {
+            Log.e(TAG, "widget view " + id + " operation failed (skipped)", error);
+        }
+    }
+
+    /** Set a text view, hiding it when {@code visible} is false; never throw. */
+    private void setText(RemoteViews views, int id, String text, boolean visible) {
+        safe(views, id, () -> {
+            views.setTextViewText(id, text == null ? "" : text);
+            views.setViewVisibility(id, visible ? View.VISIBLE : View.GONE);
+        });
     }
 
     private static int requestCode(String kind, int salt) {

@@ -59,8 +59,14 @@ public class NativeKitWidgetPlugin extends Plugin {
         IntentFilter filter = new IntentFilter();
         filter.addAction(ACTION_WIDGET_TAP);
         filter.addAction(ACTION_FLOATING_MESSAGE);
-        if (Build.VERSION.SDK_INT >= 33) getContext().registerReceiver(eventReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        else getContext().registerReceiver(eventReceiver, filter);
+        try {
+            if (Build.VERSION.SDK_INT >= 33) getContext().registerReceiver(eventReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            else getContext().registerReceiver(eventReceiver, filter);
+        } catch (Throwable error) {
+            // Registering the dynamic receiver can fail on some OEM builds; never let a plugin
+            // load step crash the whole app at startup.
+            android.util.Log.e("NativeKitWidget", "registerReceiver failed", error);
+        }
     }
 
     @Override
@@ -204,7 +210,13 @@ public class NativeKitWidgetPlugin extends Plugin {
         new WidgetStore(getContext()).setConfig("floating", config);
         Intent service = new Intent(getContext(), FloatingWidgetService.class);
         service.setAction(FloatingWidgetService.ACTION_START);
-        ContextCompat.startForegroundService(getContext(), service);
+        try {
+            ContextCompat.startForegroundService(getContext(), service);
+        } catch (Throwable error) {
+            android.util.Log.e("NativeKitWidget", "startForegroundService failed", error);
+            call.reject("Unable to start floating overlay service", error);
+            return;
+        }
         JSObject result = new JSObject();
         result.put("running", true);
         call.resolve(result);
