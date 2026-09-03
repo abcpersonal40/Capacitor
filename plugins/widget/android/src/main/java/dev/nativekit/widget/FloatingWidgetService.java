@@ -230,7 +230,10 @@ public class FloatingWidgetService extends Service {
         final float density = getResources().getDisplayMetrics().density;
         final int width = (int) (config.optInt("width", 240) * density);
         final int height = (int) (config.optInt("height", 220) * density);
-        FrameLayout.LayoutParams contentLp = (FrameLayout.LayoutParams) contentView.getLayoutParams();
+        // floating_content sits inside a LinearLayout, so its LayoutParams is a
+        // LinearLayout.LayoutParams — never cast to FrameLayout.LayoutParams (that throws
+        // ClassCastException and silently killed the bubble). Just resize the actual params.
+        ViewGroup.LayoutParams contentLp = contentView.getLayoutParams();
         if (contentLp != null) {
             contentLp.width = width;
             contentLp.height = height;
