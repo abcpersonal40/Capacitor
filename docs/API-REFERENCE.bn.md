@@ -938,6 +938,7 @@ Installed app result includes:
 | `installFromFiles(files, options?)` | FileList/File[] install/update |
 | `installFromZip(blob, options?)` | ZIP install/update |
 | `install({ manifest, files })` | in-memory files install/update |
+| `installWebComponent({ fileName, data?, source?, tag?, name?, id?, description? })` | **Quick-add:** এক ফাইল web component `.js/.mjs` (tag auto-detect + manifest/wrapper synthesize) বা `.html` plain page — এক call-এ install |
 | `list()` | installed app + policy list |
 | `get(appId)` | one app + policy |
 | `launch(appId, container, options?)` | required `HTMLElement` target-এ isolated/iframe session |
@@ -994,6 +995,9 @@ await B.setMethodPermission(appId, 'camera.getPhoto', null); // inherit
 | `setCapability(appId, capability, boolean)` | compatibility allow/block |
 | `setMethodPermission(appId, method, boolean\|null)` | compatibility allow/block/inherit |
 | `setAllowedHosts(appId, hosts)` | network/browser policy; running sessions restart/stop |
+| `setNetworkMode(appId, mode)` | `sandboxed\|hosts\|full`; running sessions stop হয় যেন নতুন mode apply হয় |
+| `setMediaAutoplay(appId, enabled)` | gesture ছাড়া media autoplay allow/block |
+| `networkStats(appId?)` | per-app network requests/tracking snapshot |
 
 Revoke শুধু future call বদলায় না: matching pending call cancel, subscription remove এবং owned background location/notification/alarm state release চেষ্টা হয়। Cleanup ব্যর্থ হলে method reject করে; silently success নয়।
 
@@ -1184,6 +1188,8 @@ Feature toggle বন্ধ করলে corresponding cleanup façade unavailab
 ```
 
 `features.appBrowser` ও `appBrowser.enabled` equal হতে হবে। Empty trusted `network.allowedHostnames` মানে any HTTP(S) hostname (cleartext rule আলাদা); empty package policy `allowedHosts` মানে installed app broker network কোথাও যেতে পারবে না।
+
+**⚡ Quick add (web component):** shell-এর "Sandboxed App Browser → ⚡ Quick Add" বক্সে একটা `.js/.mjs` ফাইল pick করলেই `installWebComponent` runs — tag auto-detect → const `nativekit.manifest.json`-সমান manifest synthesize → generated wrapper entry → install → launch। বিস্তারিত ও code-নিয়ম: [`WEB-DEV-GUIDE.md`](./WEB-DEV-GUIDE.md) ও [`MINI-APP-CREATOR-GUIDE.md`](./MINI-APP-CREATOR-GUIDE.md)।
 
 `allowDirectWebNetwork:false` installed renderer fetch/XHR/WebSocket/media network বন্ধ করে এবং audited broker HTTP নিতে বাধ্য করে। `true` করলে policy-approved direct traffic browser CORS-এর অধীন এবং broker audit-এর বাইরে; remote scripts/styles/fonts/iframes এখনও CSP restriction-এর অধীন।
 

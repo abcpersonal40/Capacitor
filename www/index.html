@@ -98,6 +98,23 @@
       </div>
     </section>
 
+    <section class="panel widget-panel" id="widget-lab">
+      <div>
+        <p class="eyebrow">WIDGETS</p>
+        <h2>Home-screen + floating widget</h2>
+        <p style="color:var(--muted);font-size:.85rem;margin-top:8px">
+          Home-screen widget native <code>RemoteViews</code>-এ render হয় (Android) ও WidgetKit-এ (iOS);
+          আপনি web থেকে data push করেন। Floating widget screen-এর উপরে ভেসে থাকে এবং
+          <code>widgets/floating.html</code> নামে একটি HTML পেজ WebView-এ চালায় (শুধু Android 8.0+)।
+        </p>
+      </div>
+      <div class="grid" style="margin-top:16px" aria-label="Widget tests">
+        <article class="card"><span class="icon">▦</span><h3>Home-screen widget</h3><p>Stored config-এ counter রেখে সব live instance update এবং optional pin request করুন।</p><div class="input-row"><button data-action="widgetset">Set counter</button><button data-action="widgetinc" class="secondary">Increment</button></div><div class="input-row"><button data-action="widgetreload" class="ghost">Reload</button><button data-action="widgetpin" class="ghost">Pin request</button></div></article>
+        <article class="card warning"><span class="icon">◉</span><h3>Floating widget</h3><p>Overlay permission চেক/ask করুন, তারপর bubble দেখান (web-rendered panel)।</p><div class="input-row"><button data-action="floatcheck">Check permit</button><button data-action="floatrequest" class="secondary">Request permit</button></div><div class="input-row"><button data-action="floatshow">Show bubble</button><button data-action="floatsend" class="secondary">Push +1</button></div><div class="input-row"><button data-action="floathide" class="ghost">Hide</button></div></article>
+        <article class="card"><span class="icon">◫</span><h3>Widget events</h3><p>নিচের log-এ widget tap ও floating message স্ট্রিম আসে।</p><button data-action="widgetlisten" class="secondary">Listen once</button></article>
+      </div>
+    </section>
+
     <section class="panel network-panel">
       <div>
         <p class="eyebrow">NATIVE NETWORK</p>
@@ -118,6 +135,32 @@
           <p>Installed HTML/CSS/JS/Web Component সর্বোচ্চ-isolation renderer-এ চলে; প্রতিটি NativeKit call trusted host-এর tri-state policy/approval broker দিয়ে যায়। Remote HTTPS URL আলাদা browser-only mode—সেখানে NativeKit inject হয় না।</p>
         </div>
         <button id="apps-refresh" class="secondary" type="button">Refresh</button>
+      </div>
+
+      <div class="import-box quick-component-box">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">⚡ QUICK ADD</p>
+            <h3>Web Component — এক ফাইলই যথেষ্ট</h3>
+          </div>
+        </div>
+        <p class="hint">
+          নিজের custom element (<code>customElements.define('my-widget', …)</code>) একটা
+          <code>.js</code>/<code>.mjs</code> ফাইল pick করলেই tag স্বয়ংক্রিয় detect হয়ে manifest +
+          entry wrapper তৈরি হবে এবং install → run হবে — অন্য কিছু লিখতে হবে না।
+          <code>.html</code> দিলে সেটা plain mini-app page হিসেবে চলবে। অনুমতি default <code>ask</code>।
+        </p>
+        <div class="field-grid">
+          <label>Component file<input id="wc-file" type="file" accept=".js,.mjs,.html,.htm"></label>
+          <label>Display name (optional)<input id="wc-name" placeholder="My widget" autocomplete="off"></label>
+        </div>
+        <div class="field-grid">
+          <label>Custom element tag (auto-detect; manually override)<input id="wc-tag" placeholder="auto-detected" autocomplete="off"></label>
+        </div>
+        <div class="import-actions">
+          <button id="wc-install" type="button" disabled>Install &amp; run</button>
+          <span id="wc-status" class="muted">কোনো file নির্বাচিত নয়</span>
+        </div>
       </div>
 
       <div class="import-box">

@@ -4,6 +4,7 @@ import { zipSync, strToU8 } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import {
   appDatabase,
+  detectComponentTag,
   gateAppBrowserHostSurface,
   inspectZipLimits,
   isAllowedAppHost,
@@ -46,6 +47,26 @@ describe('App Browser package boundary', () => {
     expect(normalizeAppBrowserColorScheme('light')).toBe('light');
     expect(normalizeAppBrowserColorScheme('dark')).toBe('dark');
     for (const value of ['', 'auto', undefined, null, 1, {}]) expect(normalizeAppBrowserColorScheme(value)).toBe('dark');
+  });
+
+  it('wires the single-file quick-add web component upload in the shell UI', () => {
+    const manager = readFileSync(path.join(root, 'www/app-browser-manager.js'), 'utf8');
+    const html = readFileSync(path.join(root, 'www/index.html'), 'utf8');
+    expect(manager).toContain('kit.appBrowser.installWebComponent');
+    expect(manager).toContain('function detectComponentTag');
+    expect(html).toContain('QUICK ADD');
+    expect(html).toContain('id="wc-install"');
+    expect(html).toContain('id="wc-file"');
+  });
+
+  it('detects a registered custom-element tag from a quick-add web component module', () => {
+    const source = `class NativeStatusCard extends HTMLElement {}\ncustomElements.define('native-status-card', NativeStatusCard);`;
+    expect(detectComponentTag(source)).toBe('native-status-card');
+    expect(detectComponentTag(`customElements.define("my-widget", MyWidget);`)).toBe('my-widget');
+    expect(detectComponentTag(`window.customElements.define("nested.tag", C);`)).toBeUndefined();
+    expect(detectComponentTag(`const tag = 'my-widget'; customElements.define(tag, MyWidget);`)).toBeUndefined();
+    expect(detectComponentTag(`console.log('no component here');`)).toBeUndefined();
+    expect(detectComponentTag(`customElements.define('notag', C);`)).toBeUndefined();
   });
 
   it('matches only explicit HTTP(S) host policy, including safe wildcards and ports', () => {

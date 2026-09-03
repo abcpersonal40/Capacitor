@@ -16,6 +16,53 @@
     return element;
   };
 
+  // ==== Quick-add: single web component ====
+  const COMP_TAG_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/;
+  function detectComponentTag(source) {
+    const match = /customElements\s*\.\s*define\s*\(\s*(["'])([a-z][a-z0-9]*(?:-[a-z0-9]+)+)\1\s*[,\s]/.exec(source);
+    return match ? match[2] : undefined;
+  }
+
+  async function installQuickComponent() {
+    const button = byId('wc-install');
+    const file = byId('wc-file').files?.[0];
+    if (!file) return;
+    const status = byId('wc-status');
+    button.disabled = true;
+    const previous = button.textContent;
+    button.textContent = 'Installing…';
+    try {
+      const data = await file.text();
+      const isHtml = /\.html?$/i.test(file.name);
+      const explicitTag = byId('wc-tag').value.trim();
+      const detected = !isHtml ? detectComponentTag(data) : undefined;
+      if (!isHtml && !COMP_TAG_RE.test(explicitTag || detected || '')) {
+        throw new Error(`No custom-element tag detected in ${file.name}. Add customElements.define('my-tag', …) or type a lowercase tag with a hyphen.`);
+      }
+      const result = await kit.appBrowser.installWebComponent({
+        fileName: file.name,
+        data,
+        name: byId('wc-name').value.trim() || undefined,
+        tag: explicitTag || detected || undefined,
+      });
+      status.textContent = `✓ “${result.manifest.name}” (${result.id}) install হয়েছে — launch হচ্ছে…`;
+      report('appBrowser.installWebComponent', { id: result.id, tag: result.manifest.webComponent?.tag, files: result.fileCount });
+      byId('wc-file').value = '';
+      byId('wc-tag').value = '';
+      byId('wc-name').value = '';
+      await renderApps();
+      const app = await kit.appBrowser.get(result.id);
+      await launchApp(app);
+      byId('stage-status').textContent = 'চালু হয়েছে — নিচে app frame-এ দেখা যাবে।';
+    } catch (error) {
+      status.textContent = `✗ ${error.message}`;
+      report('appBrowser.installWebComponent · ERROR', { message: error.message });
+    } finally {
+      button.textContent = previous;
+      button.disabled = !byId('wc-file').files?.length;
+    }
+  }
+
   function report(label, value) {
     if (typeof window.nativeKitDemoLog === 'function') window.nativeKitDemoLog(label, value);
   }
@@ -399,5 +446,23 @@
     byId('stage-status').textContent = `Bridge-free URL: ${detail.state ?? 'unknown'}${detail.reason ? ` · ${detail.reason}` : ''}`;
     if (detail.state === 'closed' || detail.state === 'failed') runningSession = null;
   });
+  const wcFileInput = byId('wc-file');
+  const wcInstallButton = byId('wc-install');
+  if (wcFileInput && wcInstallButton) {
+    wcFileInput.addEventListener('change', async () => {
+      const file = wcFileInput.files?.[0];
+      const status = byId('wc-status');
+      wcInstallButton.disabled = !file;
+      if (!file) { status.textContent = 'কোনো file নির্বাচিত নয়'; byId('wc-tag').value = ''; return; }
+      const isHtml = /\.html?$/i.test(file.name);
+      if (isHtml) { byId('wc-tag').value = ''; status.textContent = file.name; return; }
+      try {
+        const detected = detectComponentTag(await file.text());
+        byId('wc-tag').value = detected || '';
+        status.textContent = detected ? `${file.name} → tag: ${detected}` : `${file.name} · tag detect হয়নি — নিচে লিখুন`;
+      } catch { status.textContent = file.name; }
+    });
+    wcInstallButton.addEventListener('click', () => installQuickComponent().catch((error) => report('appBrowser.installWebComponent · ERROR', { message: error.message })));
+  }
   ready().catch((error) => report('appBrowser manager · ERROR', error.message));
 })();

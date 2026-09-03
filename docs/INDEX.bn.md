@@ -7,10 +7,14 @@
 |---|---|
 | [`API-REFERENCE.bn.md`](./API-REFERENCE.bn.md) | `window.NativeKit`-এর সম্পূর্ণ API — তিন trust tier, সব facade; v1.4.x `nearby` গভীর গাইড (মিনি-অ্যাপ এক্সপোজার-নিয়মসহ) |
 | [`CONFIGURATION.bn.md`](./CONFIGURATION.bn.md) | `app.config.json`-এর প্রতিটি field + `features.*` গেট (v1.4.x: `nearby`) |
+| [`WIDGETS.bn.md`](./WIDGETS.bn.md) | Home-screen (AppWidgetProvider/WidgetKit) + floating (overlay WebView) widget — আর্কিটেকচার, API, config, সীমাবদ্ধতা |
 | [`SECURITY-POLICY.bn.md`](./SECURITY-POLICY.bn.md) | Trust boundary, capability gate, audit, network mode — "golden rules" |
 | [`BUILD-SIGNING-CI.bn.md`](./BUILD-SIGNING-CI.bn.md) | সাইনিং, CI পাইপলাইন, রিলিজ প্রক্রিয়া |
 | [`APP-REPLACEMENT.bn.md`](./APP-REPLACEMENT.bn.md) | অন্য অ্যাপ/আইডি রিলিজ করার নিয়ম (App ID, store record) |
 | [`IN-APP-BROWSER-COMPARISON.bn.md`](./IN-APP-BROWSER-COMPARISON.bn.md) | Capgo inappbrowser বেনামে বাছাইকরণ — বিকল্পগুলোর সঙ্গে তুলনা |
+| [`WEB-DEV-GUIDE.md`](./WEB-DEV-GUIDE.md) | **Web developer guide (EN)** — "একটা web component upload করলেই চলবে" (`⚡ Quick Add`), tag auto-detect, manifest synthesize, native-API consent — হিরো flow |
+| [`MINI-APP-CREATOR-GUIDE.md`](./MINI-APP-CREATOR-GUIDE.md) | **Mini-app creator guide (EN)** — package formats, `nativekit.manifest.json` schema, capability/permission model, network modes, isolation, lifecycle, limits |
+| [`QUICK-START.md`](./QUICK-START.md) | **Quick-start checklist (EN)** — clone → build → ship a web component → release, ধাপে ধাপে |
 | [`CAPACITOR-8-RESEARCH-AUDIT.bn.md`](./CAPACITOR-8-RESEARCH-AUDIT.bn.md) | Capacitor v8.5-এর গভীর audit |
 
 ## ডিপ-রিসার্চ (research/)

@@ -9,6 +9,19 @@ function log(label, value) {
 }
 window.nativeKitDemoLog = log;
 
+// ── Widget lab state (home-screen counter + floating event listeners) ──
+let widgetCount = 0;
+let widgetListenersWired = false;
+const widgetBaseSpec = {
+  layout: 'medium',
+  title: 'NativeKit',
+  subtitle: 'Counter',
+  accentColor: '#4FC3F7',
+  backgroundColor: '#0F172A',
+  action: 'open-counter',
+  buttonLabel: 'Open',
+};
+
 async function execute(label, task, button) {
   button.disabled = true;
   try { log(label, await task()); }
@@ -140,6 +153,42 @@ const actions = {
   bgstop: async () => {
     await window.NativeKit.backgroundLocation.stop();
     return window.NativeKit.backgroundLocation.status();
+  },
+  widgetset: async () => {
+    const spec = { ...widgetBaseSpec, value: String(widgetCount), actionValue: JSON.stringify({ count: widgetCount }) };
+    return window.NativeKit.widget.setConfig('nativekit-widget', spec);
+  },
+  widgetinc: async () => {
+    widgetCount += 1;
+    const spec = { ...widgetBaseSpec, value: String(widgetCount), actionValue: JSON.stringify({ count: widgetCount }) };
+    return window.NativeKit.widget.update('nativekit-widget', spec);
+  },
+  widgetreload: () => window.NativeKit.widget.reload('nativekit-widget'),
+  widgetpin: () => window.NativeKit.widget.requestPin('nativekit-widget'),
+  floatcheck: () => window.NativeKit.widget.checkFloatingPermission(),
+  floatrequest: async () => {
+    const perm = await window.NativeKit.widget.checkFloatingPermission();
+    if (perm.granted) return { granted: true, hint: 'ইতিমধ্যেই অনুমতি আছে — Show bubble চাপুন।' };
+    await window.NativeKit.widget.requestFloatingPermission();
+    log('floating permit', 'Settings খুলছে — "Display over other apps" অনুমতি দিয়ে ফিরে এসে Show bubble চাপুন।');
+    return { granted: false, hint: 'Grant করে ফিরে এসে Show bubble চাপুন।' };
+  },
+  floatshow: async () => {
+    const perm = await window.NativeKit.widget.checkFloatingPermission();
+    if (!perm.granted) return { running: false, hint: 'আগে Request permit দিন (Settings থেকে allow), তারপর আবার Show bubble।' };
+    return window.NativeKit.widget.showFloating({ title: 'NativeKit', page: 'public/widgets/floating.html', width: 240, height: 220, data: { value: widgetCount } });
+  },
+  floatsend: async () => {
+    await window.NativeKit.widget.sendToFloating({ value: widgetCount });
+    return { pushed: widgetCount };
+  },
+  floathide: () => window.NativeKit.widget.hideFloating(),
+  widgetlisten: async () => {
+    if (widgetListenersWired) return { wired: true, hint: 'Listeners ইতিমধ্যেই active।' };
+    widgetListenersWired = true;
+    await window.NativeKit.widget.onWidgetTap((event) => log('widget.tap', event));
+    await window.NativeKit.widget.onFloatingMessage((event) => log('widget.floating', event));
+    return { wired: true, hint: 'Widget tap ও floating message listen শুরু।' };
   },
   browser: async () => {
     await window.NativeKit.browser.open('https://example.com');

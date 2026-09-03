@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const config = JSON.parse(await fs.readFile(path.join(root, 'app.config.json'), 'utf8'));
+const wc = config.widget ?? { enabled: false, homeScreen: { enabled: false, resizeEnabled: true, updatePeriodMinutes: 30, kinds: [] }, floating: { enabled: false, title: '', page: '', width: 240, height: 220, startOnLaunch: false } };
 
 const xml = (value) => String(value)
   .replaceAll('&', '&amp;')
@@ -69,6 +70,43 @@ function androidManifest() {
     ? '\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />'
       + '\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />'
     : '';
+  const widgetFeature = config.features.widget && wc.enabled;
+  // Home-screen widgets need one <receiver> per declared kind. Each kind gets its own
+  // generated provider subclass (a stable ComponentName is required by Android), plus a
+  // provider-info XML we write into android/app/src/main/res/xml in configureWidgets().
+  const widgetReceivers = widgetFeature && wc.homeScreen.enabled
+    ? wc.homeScreen.kinds.map((kind) => {
+        const cls = `${config.app.id}.Widget_${sanitizeKind(kind.id)}`;
+        return '\n\n        <receiver' +
+               '\n            android:name="' + cls + '"' +
+               '\n            android:enabled="true"' +
+               '\n            android:exported="true"' +
+               '\n            android:label="@string/app_name">' +
+               '\n            <intent-filter>' +
+               '\n                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />' +
+               '\n            </intent-filter>' +
+               '\n            <meta-data' +
+               '\n                android:name="android.appwidget.provider"' +
+               '\n                android:resource="@xml/' + sanitizeKind(kind.id) + '_widget_provider" />' +
+               '\n        </receiver>';
+      }).join('')
+    : '';
+  const floatingService = widgetFeature && wc.floating.enabled
+    ? '\n\n        <service' +
+      '\n            android:name="dev.nativekit.widget.FloatingWidgetService"' +
+      '\n            android:exported="false"' +
+      '\n            android:foregroundServiceType="specialUse"' +
+      '\n            android:stopWithTask="false">' +
+      '\n            <property' +
+      '\n                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"' +
+      '\n                android:value="floating widget overlay" />' +
+      '\n        </service>'
+    : '';
+  const floatingPermissions = widgetFeature && wc.floating.enabled
+    ? '\n    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />' +
+      '\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />' +
+      '\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />'
+    : '';
   const cameraFeature = config.features.camera
     ? '\n    <uses-feature android:name="android.hardware.camera" android:required="false" />'
     : '';
@@ -97,7 +135,7 @@ function androidManifest() {
 
   return `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-${permissions}${legacyStorage}${nearbyPermissions}${cameraFeature}${locationFeature}
+${permissions}${legacyStorage}${nearbyPermissions}${floatingPermissions}${cameraFeature}${locationFeature}
 
     <application
         android:allowBackup="false"
@@ -135,6 +173,7 @@ ${permissions}${legacyStorage}${nearbyPermissions}${cameraFeature}${locationFeat
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+        ${widgetReceivers}${floatingService}
     </application>
 </manifest>
 `;
@@ -292,6 +331,53 @@ ${simpleEntries}${ats}
 `;
 }
 
+function sanitizeKind(kind) {
+  const cleaned = String(kind).replace(/[^A-Za-z0-9_]/g, '_') || 'W';
+  return /^[0-9]/.test(cleaned) ? 'N' + cleaned : cleaned;
+}
+
+async function configureWidgets() {
+  const widgetFeature = config.features.widget && wc.enabled;
+  if (!widgetFeature || !wc.homeScreen.enabled) return;
+  const androidDir = path.join(root, 'android');
+  const resXmlDir = path.join(androidDir, 'app/src/main/res/xml');
+  await fs.mkdir(resXmlDir, { recursive: true });
+  const javaRoot = path.join(androidDir, 'app/src/main/java', ...config.app.id.split('.'));
+  const resize = wc.homeScreen.resizeEnabled ? 'horizontal|vertical' : 'none';
+  const period = wc.homeScreen.updatePeriodMinutes * 60_000;
+  for (const kind of wc.homeScreen.kinds) {
+    const name = sanitizeKind(kind.id);
+    const info = [
+      '<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"',
+      `    android:minWidth="${kind.minWidthDp}dp"`,
+      `    android:minHeight="${kind.minHeightDp}dp"`,
+      `    android:minResizeWidth="${kind.minWidthDp}dp"`,
+      `    android:minResizeHeight="${kind.minHeightDp}dp"`,
+      `    android:targetCellWidth="${kind.targetCellWidth}"`,
+      `    android:targetCellHeight="${kind.targetCellHeight}"`,
+      `    android:updatePeriodMillis="${period}"`,
+      `    android:initialLayout="@layout/widget_${kind.layout}"`,
+      `    android:previewLayout="@layout/widget_${kind.layout}"`,
+      `    android:resizeMode="${resize}"`,
+      '    android:widgetCategory="home_screen"',
+      '    android:description="@string/nativekit_widget_description"',
+      '/>',
+    ].join('\n');
+    await fs.writeFile(path.join(resXmlDir, `${name}_widget_provider.xml`), `${info}\n`);
+
+    const classFile = path.join(javaRoot, `Widget_${name}.java`);
+    await fs.mkdir(path.dirname(classFile), { recursive: true });
+    const escaped = String(kind.id).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const stub = `package ${config.app.id};\n\n`
+      + `import dev.nativekit.widget.NativeKitWidgetProvider;\n\n`
+      + `/** Generated by NativeKit for home-screen widget kind '${kind.id}'. */\n`
+      + `public final class Widget_${name} extends NativeKitWidgetProvider {\n`
+      + `    @Override public String kind() { return "${escaped}"; }\n`
+      + `}\n`;
+    await fs.writeFile(classFile, stub);
+  }
+}
+
 async function configureAndroid() {
   const androidDir = path.join(root, 'android');
   if (!(await exists(androidDir))) throw new Error('android/ নেই—আগে npm run native:init চালান।');
@@ -357,6 +443,9 @@ def nativeKitSigningReady = nativeKitKeystorePath && System.getenv("ANDROID_KEYS
   await fs.mkdir(path.dirname(target), { recursive: true });
   await fs.writeFile(target, mainActivity(config.app.id));
   for (const file of mainFiles) if (path.resolve(file) !== path.resolve(target)) await fs.rm(file);
+
+  // Widget providers (receiver + provider-info XML + generated subclass) + floating service.
+  await configureWidgets();
 }
 
 function mainActivity(appId) {

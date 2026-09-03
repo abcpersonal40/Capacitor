@@ -213,7 +213,8 @@
         "nativeSSE",
         "appBrowser",
         "inAppBrowser",
-        "nearby"
+        "nearby",
+        "widget"
       ],
       "properties": {
         "camera": {
@@ -270,12 +271,17 @@
         "preferences": {
           "type": "boolean",
           "default": true,
-          "description": "Preferences/ key-value storage bridge. The demo and most shells need it; turning it off makes NativeKit.preferences throw."
+          "description": "Preferences/key-value storage bridge. The demo and most shells need it; turning it off makes NativeKit.preferences throw."
         },
         "nearby": {
           "type": "boolean",
           "default": false,
           "description": "Offline device-to-device bridge (Nearby Connections: advertising/discovery/chat/file transfer). Disable to make NativeKit.nearby throw and to strip the P2P lab UI."
+        },
+        "widget": {
+          "type": "boolean",
+          "default": false,
+          "description": "Home-screen (AppWidgetProvider/WidgetKit) and floating overlay widget bridge. Disable to make NativeKit.widget throw and to strip the widget providers + overlay service from the native projects."
         }
       }
     },
@@ -620,6 +626,140 @@
         "defaultSyncUrl": {
           "type": "string",
           "maxLength": 2048
+        }
+      }
+    },
+    "widget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "homeScreen",
+        "floating"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "homeScreen": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "updatePeriodMinutes",
+            "resizeEnabled",
+            "kinds"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "updatePeriodMinutes": {
+              "type": "integer",
+              "minimum": 15,
+              "maximum": 1440
+            },
+            "resizeEnabled": {
+              "type": "boolean"
+            },
+            "kinds": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 20,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "label",
+                  "layout",
+                  "minWidthDp",
+                  "minHeightDp",
+                  "targetCellWidth",
+                  "targetCellHeight"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]{0,48}$"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "description": "Optional; Android uses a fixed string resource as the picker label."
+                  },
+                  "layout": {
+                    "enum": [
+                      "small",
+                      "medium",
+                      "large"
+                    ]
+                  },
+                  "minWidthDp": {
+                    "type": "integer",
+                    "minimum": 110,
+                    "maximum": 400
+                  },
+                  "minHeightDp": {
+                    "type": "integer",
+                    "minimum": 110,
+                    "maximum": 400
+                  },
+                  "targetCellWidth": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 6
+                  },
+                  "targetCellHeight": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 6
+                  }
+                }
+              }
+            }
+          }
+        },
+        "floating": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "title",
+            "page",
+            "width",
+            "height",
+            "startOnLaunch"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "page": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 250
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 120,
+              "maximum": 800
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 120,
+              "maximum": 1200
+            },
+            "startOnLaunch": {
+              "type": "boolean"
+            }
+          }
         }
       }
     },

@@ -32,6 +32,7 @@ await build({
         event: config.backgroundRunner.event,
         defaultSyncUrl: config.backgroundRunner.defaultSyncUrl,
       },
+      widget: config.widget,
     }),
   },
 });

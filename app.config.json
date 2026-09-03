@@ -55,7 +55,8 @@
     "appBrowser": true,
     "inAppBrowser": true,
     "preferences": true,
-    "nearby": true
+    "nearby": true,
+    "widget": true
   },
   "permissions": {
     "camera": "ছবি বা ভিডিও সংযুক্ত করতে ক্যামেরা ব্যবহারের অনুমতি প্রয়োজন।",
@@ -121,6 +122,33 @@
     "autoStart": true,
     "taskIdentifier": "dev.nativekit.shell.background",
     "defaultSyncUrl": ""
+  },
+  "widget": {
+    "enabled": true,
+    "homeScreen": {
+      "enabled": true,
+      "updatePeriodMinutes": 30,
+      "resizeEnabled": true,
+      "kinds": [
+        {
+          "id": "nativekit-widget",
+          "label": "NativeKit",
+          "layout": "medium",
+          "minWidthDp": 140,
+          "minHeightDp": 140,
+          "targetCellWidth": 2,
+          "targetCellHeight": 2
+        }
+      ]
+    },
+    "floating": {
+      "enabled": true,
+      "title": "NativeKit",
+      "page": "public/widgets/floating.html",
+      "width": 240,
+      "height": 220,
+      "startOnLaunch": false
+    }
   },
   "security": {
     "trustedLocalContentOnly": true,

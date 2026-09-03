@@ -3,8 +3,9 @@
 > প্রশ্ন: আমাদের শেল/এজেন্ট-রোডম্যাপের জন্য Capacitor ইকোসিস্টেমে আর কোন কোন প্লাগিন যোগ করা সার্থক? স্কোরিং: (ক) agentic-রিলেভ্যান্স, (খ) ইতিমধ্যে শিপড ফিচারের সাথে যোগফল, (গ) রক্ষণাবেক্ষণ/ঝুঁকি।
 > সোর্স: [awesome-capacitor (capawesome-team)](https://github.com/capawesome-team/awesome-capacitorjs) · [riderx/awesome-capacitor](https://github.com/riderx/awesome-capacitor) · [dotnetdreamer/awesome-capacitor](https://github.com/dotnetdreamer/awesome-capacitor) · [Capawesome ML Kit ডকস](https://capawesome.io/docs/plugins/mlkit/) · [Cap-go background-geolocation রিলিজ](https://github.com/Cap-go/capacitor-background-geolocation/releases)
 
-## বর্তমান ইনভেন্টরি (১৮টি প্যাকেজ — Android-এ ১৯টি রেজিস্টার্ড ক্লাস; সব কাজ প্রমাণিত)
-অফিসিয়াল: app, background-runner, camera, file-transfer, filesystem, geolocation, haptics, keyboard, local-notifications, network, preferences, push-notifications, share · কমিউনিটি: sqlite · Capgo: inappbrowser · trancee: nearby-connections · নিজস্ব: custom-native, isolated-browser।
+## বর্তমান ইনভেন্টরি (**১৯টি প্যাকেজ** — Android-এ **২০টি রেজিস্টার্ড ক্লাস**; সব কাজ প্রমাণিত)
+অফিসিয়াল: app, background-runner, camera, file-transfer, filesystem, geolocation, haptics, keyboard, local-notifications, network, preferences, push-notifications, share · কমিউনিটি: sqlite · Capgo: inappbrowser (২ ক্লাস) · trancee: nearby-connections · নিজস্ব: custom-native, isolated-browser, widget।
+*(এটি ২০২৬-০৮-২৪-এর পরে `widget` লোকাল প্লাগিন যোগের পরে আপডেট — আগে ১৮ প্যাকেজ/১৯ ক্লাস ছিল।)*
 
 ---
 

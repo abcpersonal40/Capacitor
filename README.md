@@ -23,6 +23,7 @@
 - Preferences, native SQLite, Keychain/Android Keystore-backed secure storage
 - filesystem, progress-সহ upload/download, share, network state
 - **Nearby Connections P2P** (v1.4.x): সম্পূর্ণ অফলাইন device-to-device — advertise/discovery, auto-accept pairing, গ্রুপ চ্যাট ও chunked ফাইল ট্রান্সফার (Bluetooth/BLE/Wi-Fi Direct); পারমিশন টেমপ্লেট-গেটেড — `features.nearby`
+- **Widgets** (new): config-driven **home-screen** widget (Android `AppWidgetProvider`/`RemoteViews` + iOS WidgetKit — JS থেকে data push) এবং **floating** overlay widget (Android 8.0+ `TYPE_APPLICATION_OVERLAY` + foreground service; ভেতরে WebView-এ `HTML/CSS/JS`); দুই-মুখী মেসেজ bridge — `NativeKit.widget`, গেট `features.widget`
 - push API/plugin প্রস্তুত; Firebase/APNs credentials ইচ্ছাকৃতভাবে এখনো যোগ করা হয়নি
 - পৃথক HTTPS/localhost web target-এর জন্য optional Service Worker; installed native app-এর জন্য নয়
 - GitHub Actions: debug/release APK, AAB, Xcode 26 compile validation, signed IPA export
@@ -117,8 +118,12 @@ Trusted, installed ও remote URL—তিন tier-এর সম্পূর্�
 ## Documentation
 
 - [📚 সব ডকের সূচিকা/নেভিগেটর](./docs/INDEX.bn.md)
+- [🌐 Web Developer Guide (EN) — "একটা web component upload করলেই চলবে"](./docs/WEB-DEV-GUIDE.md)
+- [🧩 Mini-App Creator Guide (EN) — package/manifest/capability/isolation](./docs/MINI-APP-CREATOR-GUIDE.md)
+- [✅ Quick-Start Checklist (EN) — clone → build → ship → release](./docs/QUICK-START.md)
 - [Setup, replacement ও framework workflow](./docs/APP-REPLACEMENT.bn.md)
 - [সব configuration field](./docs/CONFIGURATION.bn.md)
+- [Home-screen + floating widget guide (আর্কিটেকচার, API, config, সীমাবদ্ধতা)](./docs/WIDGETS.bn.md)
 - [একক পূর্ণ Bengali NativeKit API reference—trusted host, installed package, App Browser manager ও remote URL](./docs/API-REFERENCE.bn.md)
 - [Official/Capawesome/Capgo In-App Browser source audit ও architecture decision](./docs/IN-APP-BROWSER-COMPARISON.bn.md)
 - [Local build, signing ও GitHub Actions secrets](./docs/BUILD-SIGNING-CI.bn.md)
@@ -158,8 +163,8 @@ Measurement-এর সময় local plugins `node_modules/@nativekit/*`-এ symli
 
 ## Validation status
 
-- সর্বশেষ `npm run check` pass (**25 আগস্ট 2026 re-run**; আগে Node **22.23.2**-এ অরিজিনাল run): config validation, strict typecheck, **79/79 Vitest (7 files)**, bridge/type generation এবং native staging সফল। Direct tests exact installed result/event sanitization, camera/filesystem bounds, hidden API, quota rejection এবং package-preserving `usage/cleanup` success/failure-ও যাচাই করে। Node 22-এর read-only global `navigator`-এর সঙ্গেও focused HTTP/stream test shim compatible। Project engine/CI requirement **Node 22+**। সর্বশেষ full lockfile ও production-only `npm audit --audit-level=low`—উভয়টিতে **0 vulnerability**; `npm ls --all`-ও clean।
-- সর্বশেষ `npm run native:sync` Android/iOS/web-এর জন্য pass এবং উভয় native platform-এ সব **18টি plugin package** register করেছে (16 external npm + 2 লোকাল `plugins/`); Capgo-এর দুই class-সহ মোট **19টি plugin class registration** (25 আগস্ট 2026-এ `capacitor.plugins.json` থেকে গোনা)। Generated declarations-এ exact broker-safe installed signatures এবং host `usage/cleanup` API আছে।
+- সর্বশেষ `npm run check` pass (**25 আগস্ট 2026 re-run**; আগে Node **22.23.2**-এ অরিজিনাল run): config validation, strict typecheck, **95/95 Vitest (8 files)**, bridge/type generation এবং native staging সফল। Widget plugin সোর্স `javac`-এ Android API 36 (`android.jar`) + real AndroidX (`core`/`appcompat`/`webkit`) classpath-এর বিরুদ্ধে `-Xlint:all`-সহ **exit 0**-এ compile হয়; প্রতিটি generated `Widget_<kind>.java` provider subclass-সহ। Direct tests exact installed result/event sanitization, camera/filesystem bounds, hidden API, quota rejection এবং package-preserving `usage/cleanup` success/failure-ও যাচাই করে। Node 22-এর read-only global `navigator`-এর সঙ্গেও focused HTTP/stream test shim compatible। Project engine/CI requirement **Node 22+**। সর্বশেষ full lockfile ও production-only `npm audit --audit-level=low`—উভয়টিতে **0 vulnerability**; `npm ls --all`-ও clean।
+- সর্বশেষ `npm run native:sync` Android/iOS/web-এর জন্য pass এবং উভয় native platform-এ সব **19টি plugin package** register করেছে (16 external npm + 3 লোকাল `plugins/` — custom-native, isolated-browser, widget); Capgo-এর দুই class-সহ মোট **20টি plugin class registration**। Generated declarations-এ exact broker-safe installed signatures এবং host `usage/cleanup` API আছে।
 - (১৮ আগস্ট 2026-এর শেষ চালিত run — v1.4.x-এর পরে re-run বাকি) Chrome for Testing **152.0.7977.42**-এ `npm run test:browser:csp`-এর **43টি check** pass: চার consent action + stored allow/block, exact request order/redacted summary, blocked native-call suppression, 6 audit result, CSP/network matrix এবং bridge-free remote URL metadata/`noopener,noreferrer`/null opener/lifecycle। এটি actual generated browser document চালায়; native WebView smoke test-এর বিকল্প নয়।
 - (১৮ আগস্ট 2026-এর শেষ local full build) JDK 21/API 36-এ isolated Android plugin এবং চারটি `OrderedChunkAccumulatorTest` pass। ছয় Kotlin target constrained-memory-তে আলাদাভাবে compile করার পরে এক worker/in-process Kotlin/SerialGC দিয়ে পূর্ণ `:app:assembleDebug` **BUILD SUCCESSFUL** (385 task; final pass-এ 9 executed, 376 up-to-date)।
 - ডিভাইস-টেস্টেড সর্বশেষ installable APK: **v1.4.1-testlab** (versionCode 16; commit `7eeefa0`-এর সোর্স — বর্তমান সোর্সের APK-প্রাসঙ্গিক অংশ অভিন্ন)। SHA-256: release `6bbc9d975daecac3d6e6f8db64c853e5600227c125d4a163c8fe3d667a165771`, debug `ab320f46b6eea4398654677da558766c252d809035612698bb3b4875a03010ce`। রিপোজিটরিতে APK/AAB ট্র্যাক করা হয় না — artifact আলাদা workspace (`capacitor-2-testlab-apk/`) ও GitHub Actions-এ থাকে; নতুন রিলিজ CI থেকে তৈরি হয়।

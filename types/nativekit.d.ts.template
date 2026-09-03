@@ -14,7 +14,7 @@ type NativeKitFeatureName =
   | 'camera' | 'location' | 'backgroundLocation' | 'haptics' | 'localNotifications'
   | 'pushNotificationsReady' | 'advancedAlarms' | 'backgroundRunner' | 'sqlite'
   | 'secureStorage' | 'filesystem' | 'fileTransfer' | 'sharing' | 'networkStatus'
-  | 'nativeSSE' | 'appBrowser' | 'inAppBrowser';
+  | 'nativeSSE' | 'appBrowser' | 'inAppBrowser' | 'widget';
 
 type NativeKitAppBrowserCapability =
   | 'permissions' | 'http' | 'camera' | 'location' | 'backgroundLocation' | 'haptics'
@@ -41,6 +41,49 @@ interface NativeKitConfig {
   security: { trustedLocalContentOnly: boolean };
   appBrowser: NativeKitAppBrowserConfig;
   backgroundRunner: { label: string; event: string; defaultSyncUrl: string };
+  widget: NativeKitWidgetConfig;
+}
+
+interface NativeKitWidgetKind {
+  id: string;
+  label: string;
+  layout: 'small' | 'medium' | 'large';
+  minWidthDp: number;
+  minHeightDp: number;
+  targetCellWidth: number;
+  targetCellHeight: number;
+}
+interface NativeKitWidgetConfig {
+  enabled: boolean;
+  homeScreen: {
+    enabled: boolean;
+    updatePeriodMinutes: number;
+    resizeEnabled: boolean;
+    kinds: NativeKitWidgetKind[];
+  };
+  floating: { enabled: boolean; title: string; page: string; width: number; height: number; startOnLaunch: boolean };
+}
+
+interface NativeKitWidgetSpec {
+  layout?: 'small' | 'medium' | 'large';
+  value?: string;
+  title?: string;
+  subtitle?: string;
+  backgroundColor?: string;
+  accentColor?: string;
+  icon?: string;
+  action?: string;
+  actionValue?: string;
+  buttonLabel?: string;
+  extra?: Record<string, unknown>;
+}
+interface NativeKitFloatingWidgetOptions {
+  title?: string;
+  page?: string;
+  width?: number;
+  height?: number;
+  collapsed?: boolean;
+  data?: unknown;
 }
 
 interface NativeKitAppBrowserConfig {
@@ -369,9 +412,25 @@ interface NativeKitAppUsage {
   active: { sessions: number; subscriptions: number; backgroundLocation: boolean };
 }
 
+interface NativeKitWebComponentInput {
+  fileName: string;
+  data?: string | Uint8Array;
+  source?: string;
+  tag?: string;
+  name?: string;
+  id?: string;
+  description?: string;
+}
+
 interface NativeKitAppBrowserHostAPI {
   readonly capabilities: readonly NativeKitAppBrowserCapability[];
   install(packageValue: { files: NativeKitAppBrowserFileInput[]; manifest?: Partial<NativeKitAppManifest> }): Promise<NativeKitInstalledApp>;
+  /**
+   * Zero-config quick add: upload a single web component module (.js/.mjs) or an HTML page. For a
+   * JS module the registered custom-element tag is auto-detected and a manifest + entry wrapper are
+   * synthesized; for .html the file itself is the entry. Pass `tag` explicitly when detection fails.
+   */
+  installWebComponent(input: NativeKitWebComponentInput): Promise<NativeKitInstalledApp>;
   installFromFiles(files: FileList | File[], manifest?: Partial<NativeKitAppManifest>): Promise<NativeKitInstalledApp>;
   installFromZip(file: Blob, manifest?: Partial<NativeKitAppManifest>): Promise<NativeKitInstalledApp>;
   list(): Promise<NativeKitInstalledApp[]>;
@@ -546,6 +605,23 @@ interface NativeKitAPI {
   serviceWorker: {
     readonly supported: boolean;
     unregisterAll(): Promise<boolean[]>;
+  };
+  widget: {
+    supported(): boolean;
+    listConfigs(): Promise<Record<string, NativeKitWidgetSpec>>;
+    setConfig(kind: string, config: NativeKitWidgetSpec): Promise<{ kind: string; saved: boolean }>;
+    update(kind: string, config: NativeKitWidgetSpec): Promise<{ kind: string; saved: boolean }>;
+    reload(kind?: string): Promise<{ updated: number }>;
+    getWidgetIds(kind: string): Promise<{ ids: number[] }>;
+    requestPin(kind: string): Promise<{ requested: boolean }>;
+    checkFloatingPermission(): Promise<{ granted: boolean }>;
+    requestFloatingPermission(): Promise<void>;
+    showFloating(options?: NativeKitFloatingWidgetOptions): Promise<{ running: boolean }>;
+    hideFloating(): Promise<void>;
+    isFloatingVisible(): Promise<{ visible: boolean }>;
+    sendToFloating(data: unknown): Promise<void>;
+    onWidgetTap(callback: (event: { kind: string; action?: string; value?: string; widgetId?: number }) => void): Promise<NativeKitRemoveHandle>;
+    onFloatingMessage(callback: (event: { data: unknown } | Record<string, unknown>) => void): Promise<NativeKitRemoveHandle>;
   };
   appBrowser: NativeKitAppBrowserHostAPI;
 }
@@ -793,4 +869,8 @@ export {
   NativeKitAppUsage,
   NativeKitPendingPermission,
   NativeKitAuditRecord,
+  NativeKitWidgetConfig,
+  NativeKitWidgetSpec,
+  NativeKitFloatingWidgetOptions,
+  NativeKitWidgetKind,
 };

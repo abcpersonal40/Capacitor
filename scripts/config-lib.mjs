@@ -32,7 +32,7 @@ export async function validateConfig({ throwOnError = true } = {}) {
   const warnings = [];
 
   if (schemaValid) {
-    const { app, web, network, features, android, ios, appBrowser, backgroundRunner, security } = config;
+    const { app, web, network, features, android, ios, appBrowser, backgroundRunner, security, widget } = config;
     const reservedDirs = [web.nativeStagingDir, web.webOutputDir];
     const sourceDir = web.mode === 'static'
       ? web.staticDir
@@ -90,6 +90,22 @@ export async function validateConfig({ throwOnError = true } = {}) {
     }
     if (appBrowser.renderer === 'isolated' && appBrowser.isolated.fallbackToIframe) {
       warnings.push('Android API 28-এর নিচে বা native transport unavailable হলে opaque iframe fallback ব্যবহৃত হবে। কঠোর deployment-এ fallbackToIframe=false করুন।');
+    }
+    const wc = widget ?? { enabled: false, homeScreen: { enabled: false }, floating: { enabled: false } };
+    if (wc.enabled && !features.widget) {
+      errors.push('/widget/enabled: features.widget=true না হওয়া পর্যন্ত widget bridge চালু করা যাবে না');
+    }
+    if (wc.homeScreen.enabled && !wc.enabled) {
+      errors.push('/widget/homeScreen/enabled: widget.enabled=true ছাড়া home-screen widget চালু করা যাবে না');
+    }
+    if (wc.floating.enabled && !wc.enabled) {
+      errors.push('/widget/floating/enabled: widget.enabled=true ছাড়া floating widget চালু করা যাবে না');
+    }
+    if (wc.floating.enabled && app.id.startsWith('dev.nativekit')) {
+      warnings.push('Floating overlay android.permission.SYSTEM_ALERT_WINDOW চায় এবং Play policy-এ একটি দৃশ্যমান user-visible purpose + in-app explanation (disclosure) থাকতে হবে।');
+    }
+    if (features.widget) {
+      warnings.push('Home-screen widget data SharedPreferences/App Group-এ রাখা হয়; সংবেদনশীল data widget-এ দেখাবেন না। Floating overlay শুধু Android 8.0+।');
     }
     if (features.backgroundLocation && !features.location) {
       errors.push('/features/backgroundLocation: location=true ছাড়া background location চালু করা যাবে না');

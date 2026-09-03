@@ -14,6 +14,7 @@ import { BackgroundRunner } from '@capacitor/background-runner';
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
 import { NearbyConnections } from '@capacitor-trancee/nearby-connections';
 import { NativeKitCustom } from '@nativekit/custom-native';
+import { Widget } from '@nativekit/widget';
 import { InAppBrowser } from '@capgo/capacitor-inappbrowser';
 import { createAppBrowser } from './app-browser';
 
@@ -45,6 +46,16 @@ interface NativeKitBuildConfig {
     isolated: { enabled: boolean; fallbackToIframe: boolean; stageChunkBytes: number; androidMinApi: number; hangTerminationDelayMs: number };
   };
   backgroundRunner: { label: string; event: string; defaultSyncUrl: string };
+  widget: {
+    enabled: boolean;
+    homeScreen: {
+      enabled: boolean;
+      updatePeriodMinutes: number;
+      resizeEnabled: boolean;
+      kinds: Array<{ id: string; label: string; layout: 'small' | 'medium' | 'large'; minWidthDp: number; minHeightDp: number; targetCellWidth: number; targetCellHeight: number }>;
+    };
+    floating: { enabled: boolean; title: string; page: string; width: number; height: number; startOnLaunch: boolean };
+  };
 }
 
 declare const __NATIVEKIT_CONFIG__: NativeKitBuildConfig;
@@ -76,6 +87,10 @@ const databases = new Map<string, any>();
 
 function feature(name: string): void {
   if (!config.features[name]) throw new Error(`NativeKit feature disabled in app.config.json: ${name}`);
+}
+
+function requireNative(): void {
+  if (!isNative) throw new Error('This operation requires a native Android/iOS build');
 }
 
 function randomId(prefix = 'nk'): string {
@@ -620,6 +635,31 @@ const NativeKit: any = {
       const registrations = await navigator.serviceWorker.getRegistrations();
       return Promise.all(registrations.map((registration) => registration.unregister()));
     },
+  },
+  widget: {
+    supported: (): boolean => config.features.widget && isNative,
+    listConfigs: async () => { feature('widget'); requireNative(); return Widget.listConfigs(); },
+    setConfig: async (kind: string, widgetConfig: Record<string, unknown>) => {
+      feature('widget'); requireNative();
+      return Widget.setConfig({ kind, config: widgetConfig });
+    },
+    update: async (kind: string, widgetConfig: Record<string, unknown>) => {
+      feature('widget'); requireNative();
+      const saved = await Widget.setConfig({ kind, config: widgetConfig });
+      await Widget.reload({ kind });
+      return saved;
+    },
+    reload: async (kind?: string) => { feature('widget'); requireNative(); return Widget.reload(kind ? { kind } : {}); },
+    getWidgetIds: async (kind: string) => { feature('widget'); requireNative(); return Widget.getWidgetIds({ kind }); },
+    requestPin: async (kind: string) => { feature('widget'); requireNative(); return Widget.requestPin({ kind }); },
+    checkFloatingPermission: async () => { feature('widget'); requireNative(); return Widget.checkOverlayPermission(); },
+    requestFloatingPermission: async () => { feature('widget'); requireNative(); return Widget.requestOverlayPermission(); },
+    showFloating: async (options: Record<string, unknown> = {}) => { feature('widget'); requireNative(); return Widget.showFloating(options); },
+    hideFloating: async () => { feature('widget'); requireNative(); return Widget.hideFloating(); },
+    isFloatingVisible: async () => { feature('widget'); requireNative(); return Widget.isFloatingVisible(); },
+    sendToFloating: async (data: unknown) => { feature('widget'); requireNative(); return Widget.sendToFloating({ data }); },
+    onWidgetTap: (callback: (event: any) => void): Promise<Remove> => { feature('widget'); requireNative(); return Widget.addListener('nativeWidgetTap', callback); },
+    onFloatingMessage: (callback: (event: any) => void): Promise<Remove> => { feature('widget'); requireNative(); return Widget.addListener('nativeFloatingMessage', callback); },
   },
 };
 

@@ -477,6 +477,43 @@ describe('App Browser usage and package-preserving cleanup', () => {
   });
 });
 
+describe('App Browser quick-add: single web component', () => {
+  it('auto-detects the tag, synthesizes the manifest + wrapper entry, and installs', async () => {
+    installHostWindow();
+    const host = createAppBrowser(minimalNativeKit(), appBrowserConfig());
+    const source = `class W extends HTMLElement { connectedCallback(){ this.textContent = 'hi'; } }\ncustomElements.define('my-temp-card', W);`;
+    const installed = await host.installWebComponent({ fileName: 'my-temp-card.js', data: source });
+    expect(installed.manifest.webComponent).toMatchObject({ tag: 'my-temp-card', module: 'my-temp-card.js' });
+    expect(installed.manifest.entry).toBe('__nativekit_component__.html');
+    expect(installed.manifest.requestedCapabilities).toEqual([]);
+    expect(installed.fileCount).toBe(2); // the js + the generated wrapper entry
+    await expect(host.get(installed.id)).resolves.toMatchObject({ id: installed.id, policy: { enabled: true } });
+  });
+
+  it('uses an uploaded HTML page as the entry when there is no component module', async () => {
+    installHostWindow();
+    const host = createAppBrowser(minimalNativeKit(), appBrowserConfig());
+    const installed = await host.installWebComponent({ fileName: 'hello.html', data: '<!doctype html><title>hi</title>' });
+    expect(installed.manifest.entry).toBe('hello.html');
+    expect(installed.manifest.webComponent).toBeUndefined();
+    expect(installed.id).toBe('nativekit.quick.hello');
+  });
+
+  it('rejects a JS module whose tag cannot be detected unless a tag is supplied', async () => {
+    installHostWindow();
+    const host = createAppBrowser(minimalNativeKit(), appBrowserConfig());
+    await expect(host.installWebComponent({ fileName: 'widget.js', data: 'const x = 1;' })).rejects.toThrow(/No custom-element tag detected/);
+  });
+
+  it('accepts an explicit tag override when detection is impossible', async () => {
+    installHostWindow();
+    const host = createAppBrowser(minimalNativeKit(), appBrowserConfig());
+    const installed = await host.installWebComponent({ fileName: 'widget.js', data: 'globalThis.X = 1;', tag: 'my-widget' });
+    expect(installed.manifest.webComponent.tag).toBe('my-widget');
+    expect(installed.id).toBe('nativekit.quick.my-widget');
+  });
+});
+
 describe('App Browser download failure cleanup', () => {
   it('preserves both the transfer/quota failure and a non-missing cleanup failure', async () => {
     const cause = new Error('download failed');

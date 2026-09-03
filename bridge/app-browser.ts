@@ -505,6 +505,19 @@ function safeIdPart(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'app';
 }
 
+/**
+ * Extract the first registered custom-element tag from a web component module's source,
+ * e.g. `customElements.define('native-status-card', NativeStatusCard)`. Returns a valid
+ * custom-element name (lowercase, hyphenated) or undefined. Used by the "quick add" flow so
+ * a developer can upload a single `.js`/`.mjs` component and get a working mini-app without
+ * writing a manifest by hand. Only matches the common define call; a component that registers
+ * its tag dynamically still needs an explicit `tag` argument.
+ */
+export function detectComponentTag(source: string): string | undefined {
+  const match = /customElements\s*\.\s*define\s*\(\s*(["'])([a-z][a-z0-9]*(?:-[a-z0-9]+)+)\1\s*[,\s]/.exec(source);
+  return match?.[2];
+}
+
 function compareUtf8(left: string, right: string): number {
   const a = textEncoder.encode(left); const b = textEncoder.encode(right);
   for (let index = 0; index < Math.min(a.length, b.length); index += 1) if (a[index] !== b[index]) return a[index] - b[index];
@@ -2466,6 +2479,47 @@ export function createAppBrowser(nativeKit: any, config: AppBrowserConfig): any 
   const hostSurface = Object.freeze({
     capabilities: APP_BROWSER_CAPABILITIES,
     install: async (packageValue: { files: Array<{ path: string; data: string | Uint8Array; type?: string }>; manifest?: Record<string, any> }) => installPackage(packageValue.files.map((file) => ({ path: file.path, bytes: typeof file.data === 'string' ? textEncoder.encode(file.data) : file.data, type: file.type ?? mimeType(file.path) })), packageValue.manifest ?? {}),
+    /**
+     * Zero-config quick add: the developer uploads a single web component module (`.js`/`.mjs`)
+     * or a full HTML page. For a JS module we auto-detect the registered custom-element tag and
+     * synthesize a manifest + entry wrapper, so "upload one file" is enough. For `.html` the file
+     * itself is used as the entry. Pass `tag` explicitly when detection isn't possible.
+     */
+    installWebComponent: async (input: { fileName: string; data?: string | Uint8Array; source?: string; tag?: string; name?: string; id?: string; description?: string }): Promise<Record<string, any>> => {
+      if (!config.enabled) throw new Error('App Browser is disabled in app.config.json');
+      const fileName = normalizePath(String(input.fileName ?? ''));
+      if (!fileName) throw new Error('fileName is required');
+      const isHtml = /\.html?$/i.test(fileName);
+      const bytes: Uint8Array = input.data == null
+        ? textEncoder.encode(String(input.source ?? ''))
+        : typeof input.data === 'string' ? textEncoder.encode(input.data) : input.data;
+      const source = typeof input.data === 'string' ? input.data : (input.source ?? textDecoder.decode(bytes));
+      const detected = detectComponentTag(source);
+      const isModule = /\.m?js$/i.test(fileName);
+      if (!isHtml && isModule) {
+        const tag = String(input.tag ?? '').trim() || detected || '';
+        if (!COMPONENT_TAG_RE.test(tag)) throw new Error(`No custom-element tag detected in ${fileName}. Register one with customElements.define('my-tag', …) or pass an explicit tag.`);
+        const rawName = String(input.name ?? '').trim() || tag;
+        const id = String(input.id ?? '').trim() || `nativekit.quick.${safeIdPart(tag)}`;
+        if (!ID_RE.test(id) || id.length > 120) throw new Error('Manifest id must be a stable lowercase dotted/dashed identifier');
+        return installPackage([{ path: fileName, bytes, type: mimeType(fileName) }], {
+          id, name: rawName.slice(0, 80), version: '1.0.0',
+          description: String(input.description ?? `Quick-added web component ${tag}`).slice(0, 500),
+          requestedCapabilities: [],
+          webComponent: { tag, module: fileName, attributes: {} },
+        });
+      }
+      const stem = fileName.replace(/\.html?$/i, '');
+      const rawName = String(input.name ?? '').trim() || stem;
+      const id = String(input.id ?? '').trim() || `nativekit.quick.${safeIdPart(stem)}`;
+      if (!ID_RE.test(id) || id.length > 120) throw new Error('Manifest id must be a stable lowercase dotted/dashed identifier');
+      return installPackage([{ path: fileName, bytes, type: mimeType(fileName) }], {
+        id, name: rawName.slice(0, 80), version: '1.0.0',
+        description: String(input.description ?? `Quick-added ${rawName}`).slice(0, 500),
+        entry: fileName,
+        requestedCapabilities: [],
+      });
+    },
     installFromFiles,
     installFromZip,
     list: async () => Promise.all((await idbGetAll<InstalledApp>('apps')).map(async (app) => publicApp(app, await getPolicy(app)))),
