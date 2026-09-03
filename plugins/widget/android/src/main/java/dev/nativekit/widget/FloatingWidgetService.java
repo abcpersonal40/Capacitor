@@ -9,6 +9,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
+import android.content.pm.ServiceInfo;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.os.Build;
@@ -86,17 +88,65 @@ public class FloatingWidgetService extends Service {
     /** Last attach/start error, or null if the window is showing. */
     public static String getLastError() { return lastError; }
 
+    // Durable diagnostic record so a start/attach failure survives process death and can be
+    // reported back to the web bridge (a low-end device may kill the process right after a failure).
+    private static final String DIAG_PREFS = "nativekit_floating_diag";
+    private void recordOutcome(boolean attempted, boolean shown, String error) {
+        lastError = error;
+        if (attempted) windowAttempted = true;
+        windowShown = shown;
+        try {
+            JSONObject o = new JSONObject();
+            o.put("attempted", attempted);
+            o.put("shown", shown);
+            if (error != null) o.put("error", error);
+            o.put("ts", System.currentTimeMillis());
+            getSharedPreferences(DIAG_PREFS, Context.MODE_PRIVATE).edit().putString("outcome", o.toString()).apply();
+        } catch (Throwable ignored) {}
+    }
+
+    /** Read the last durable outcome, or null if never recorded. */
+    static JSONObject readLastOutcome(Context context) {
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(DIAG_PREFS, Context.MODE_PRIVATE);
+            String raw = prefs.getString("outcome", null);
+            return raw == null ? null : new JSONObject(raw);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    /** Promote to foreground using the API-appropriate service type (or type-less below API 34). */
+    private void promoteToForeground(Notification notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34 = Android 14
+            // specialUse is the only valid overlay type on Android 14+; the manifest declares the
+            // matching FOREGROUND_SERVICE_SPECIAL_USE permission.
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+        } else {
+            // Android 10 and older (and Android 11-13): the legacy two-arg call. Passing specialUse
+            // here would be unrecognized on these OSes; the manifest attribute is likewise ignored.
+            startForeground(NOTIFICATION_ID, notification);
+        }
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
         running = true;
         try {
             createChannel();
-            startForeground(NOTIFICATION_ID, buildNotification());
+            // Promote to foreground with the API-appropriate type. On Android 14+ (API 34)
+            // 'specialUse' is the only valid overlay type and MUST be passed; on Android 10-lower
+            // passing a type that the platform does not recognize can throw a SecurityException,
+            // which is why the manifest value alone is not enough — we dispatch at runtime.
+            promoteToForeground(buildNotification());
         } catch (Throwable error) {
-            // Foreground promotion failed (rare on low-end / OEM builds, or a missing permission).
-            // Rather than crash the app, bail out and let onDestroy tidy up.
-            Log.e(TAG, "startForeground failed; stopping floating service", error);
+            // Foreground promotion failed (low-end / OEM builds, or a stale/unknown service type).
+            // Record the real reason so showFloating reports it instead of a bare 'running: true',
+            // then stop cleanly rather than crash.
+            String msg = "startForeground: " + (error == null ? "unknown" : error.getClass().getSimpleName() + ": " + error.getMessage());
+            Log.e(TAG, msg, error);
+            recordOutcome(true, false, msg);
             running = false;
             stopSelf();
             return;
@@ -108,10 +158,9 @@ public class FloatingWidgetService extends Service {
             buildBubble();
         } catch (Throwable error) {
             // Capture the reason so showFloating can report it instead of a bare 'running: true'.
-            windowAttempted = true;
-            windowShown = false;
-            lastError = "buildBubble: " + (error == null ? "unknown" : error.getClass().getSimpleName() + ": " + error.getMessage());
-            Log.e(TAG, "buildBubble failed; stopping floating service: " + lastError, error);
+            String msg = "buildBubble: " + (error == null ? "unknown" : error.getClass().getSimpleName() + ": " + error.getMessage());
+            Log.e(TAG, msg, error);
+            recordOutcome(true, false, msg);
             running = false;
             stopSelf();
         }
@@ -422,17 +471,15 @@ public class FloatingWidgetService extends Service {
         params.x = dp(24);
         params.y = dp(96);
         bubbleView.setOnTouchListener(null); // drag only via header
-        windowAttempted = true;
         try {
             windowManager.addView(bubbleView, params);
-            windowShown = true;
-            lastError = null;
+            recordOutcome(true, true, null);
             Log.i(TAG, "floating bubble overlay attached (type=" + type + ", x=" + params.x + ", y=" + params.y + ")");
         } catch (Throwable error) {
             // BadTokenException / SecurityException (no overlay permission) or Surface issues.
-            windowShown = false;
-            lastError = (error == null ? "unknown" : error.getClass().getSimpleName() + ": " + error.getMessage());
-            Log.e(TAG, "addView to overlay failed: " + lastError, error);
+            String msg = "addView: " + (error == null ? "unknown" : error.getClass().getSimpleName() + ": " + error.getMessage());
+            Log.e(TAG, "addView to overlay failed: " + msg, error);
+            recordOutcome(true, false, msg);
             running = false;
             stopSelf();
         }
@@ -491,8 +538,9 @@ public class FloatingWidgetService extends Service {
     public void onDestroy() {
         running = false;
         windowShown = false;
-        windowAttempted = false;
-        lastError = null;
+        // Keep windowAttempted / lastError so a caller can read the last (failed) outcome even
+        // after the service has torn itself down. A deliberate hide is reported via the last
+        // outcome that was recorded (which had no error), so this does not hide failures.
         if (commandReceiver != null) {
             try { unregisterReceiver(commandReceiver); } catch (Exception ignored) {}
         }

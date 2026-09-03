@@ -178,7 +178,7 @@ const actions = {
     if (!perm.granted) return { running: false, hint: 'আগে Request permit দিন (Settings থেকে allow), তারপর আবার Show bubble।' };
     const res = await window.NativeKit.widget.showFloating({ title: 'NativeKit', page: 'public/widgets/floating.html', width: 240, height: 220, collapsed: false, data: { value: widgetCount } });
     if (res && res.shown === false) {
-      return { ...res, hint: res.error ? `Bubble attach failed: ${res.error}` : 'Bubble attach failed — check log.' };
+      return { ...res, hint: res.error ? `Bubble না আসার কারণ: ${res.error}` : 'Bubble attach failed — check log.' };
     }
     return res;
   },

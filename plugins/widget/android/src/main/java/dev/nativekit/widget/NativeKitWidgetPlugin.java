@@ -220,12 +220,21 @@ public class NativeKitWidgetPlugin extends Plugin {
         // The service attaches the overlay window asynchronously on the main thread. Wait briefly
         // for it to report a real outcome so the caller never sees "running: true" while nothing
         // is on screen (a confusing symptom on Android 10 / low-end devices).
-        long deadline = System.currentTimeMillis() + 2000;
+        long deadline = System.currentTimeMillis() + 2500;
         while (!FloatingWidgetService.isAttempted() && System.currentTimeMillis() < deadline) {
             try { Thread.sleep(40); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); break; }
         }
         boolean shown = FloatingWidgetService.isShown();
         String err = FloatingWidgetService.getLastError();
+        // Fall back to the durable outcome if the service already tore itself down (low-end
+        // devices may kill the process right after a start/attach failure).
+        if (!FloatingWidgetService.isAttempted()) {
+            org.json.JSONObject diag = FloatingWidgetService.readLastOutcome(getContext());
+            if (diag != null) {
+                err = diag.optString("error", null);
+                shown = diag.optBoolean("shown", false);
+            }
+        }
         if (!shown && err != null) {
             android.util.Log.e("NativeKitWidget", "floating overlay reported failure: " + err);
         }
