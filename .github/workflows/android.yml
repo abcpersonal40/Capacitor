@@ -46,13 +46,23 @@ jobs:
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
 
+      # git may check out gradlew without the executable bit (mode 100644), which makes
+      # `./gradlew` fail with exit 126 "Permission denied". Always restore +x before building.
+      - name: Ensure Gradle wrapper is executable
+        shell: bash
+        run: chmod +x android/gradlew
+
       - name: Install locked JavaScript dependencies
         run: npm ci
 
       - name: Validate configuration, types, tests, and staging
         run: npm run check
 
-      - name: Install Android release signing material when configured
+      # Always sign the release APK so testers can install it on a device. When the four
+      # ANDROID_KEYSTORE_* secrets are configured we use that stable, store-uploadable identity.
+      # When they are absent we generate a throwaway EPHEMERAL test keystore so the release APK is
+      # still signed and installable (marked "ephemeral": not update-continuous, not store-valid).
+      - name: Prepare Android release signing key
         id: android_signing
         shell: bash
         env:
@@ -71,6 +81,7 @@ jobs:
             exit 1
           fi
 
+          keystore=""
           if [[ "$present" -eq 4 ]]; then
             keystore="$RUNNER_TEMP/nativekit-release.jks"
             printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore"
@@ -79,11 +90,26 @@ jobs:
             echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
             echo "ANDROID_KEY_ALIAS=$ANDROID_KEY_ALIAS" >> "$GITHUB_ENV"
             echo "ANDROID_KEY_PASSWORD=$ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "mode=stable" >> "$GITHUB_OUTPUT"
             echo "signed=true" >> "$GITHUB_OUTPUT"
-            echo "Release APK/AAB signing is enabled."
+            echo "Release signing enabled with the supplied stable keystore."
           else
-            echo "signed=false" >> "$GITHUB_OUTPUT"
-            echo "No signing secrets supplied: release artifacts will be unsigned; the debug APK remains installable."
+            keystore="$RUNNER_TEMP/nativekit-test.jks"
+            alias="nativekit-test"
+            pwd="$(openssl rand -hex 24)"
+            keytool -genkeypair -v \
+              -keystore "$keystore" -storetype PKCS12 -keyalg RSA -keysize 2048 -validity 10950 \
+              -alias "$alias" -storepass "$pwd" -keypass "$pwd" \
+              -dname "CN=NativeKit Test, OU=Testing, O=NativeKit, C=US" \
+              >/dev/null 2>&1
+            chmod 600 "$keystore"
+            echo "ANDROID_KEYSTORE_PATH=$keystore" >> "$GITHUB_ENV"
+            echo "ANDROID_KEYSTORE_PASSWORD=$pwd" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=$alias" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=$pwd" >> "$GITHUB_ENV"
+            echo "mode=ephemeral" >> "$GITHUB_OUTPUT"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "No signing secrets supplied: generated a throwaway EPHEMERAL test keystore so the release APK is installable for testing (not update-continuous, not store-valid)."
           fi
 
       - name: Stage trusted UI and synchronize native projects
@@ -116,10 +142,12 @@ jobs:
           {
             echo '### Android artifacts'
             echo
-            echo '- Release signing enabled: `${{ steps.android_signing.outputs.signed }}`'
-            echo '- Debug APK is installable with the Android debug key.'
-            if [[ '${{ steps.android_signing.outputs.signed }}' != 'true' ]]; then
-              echo '- Release APK/AAB are unsigned until the Android signing secrets are configured.'
+            echo '- Release signing: `${{ steps.android_signing.outputs.signed }}` (mode: `${{ steps.android_signing.outputs.mode }}`)'
+            echo '- Debug APK installable with the Android debug key.'
+            if [[ '${{ steps.android_signing.outputs.mode }}' == 'ephemeral' ]]; then
+              echo '- Release APK/AAB are signed with a THROWAWAY test key: installable for testing, but NOT update-continuous across builds and NOT valid for Play/App-Store upload. Configure the four `ANDROID_KEYSTORE_*` secrets for a stable, store-valid identity.'
+            else
+              echo '- Release APK/AAB signed with the configured stable keystore.'
             fi
             echo
             echo '```text'
@@ -138,4 +166,4 @@ jobs:
       - name: Remove temporary keystore
         if: always()
         shell: bash
-        run: rm -f "$RUNNER_TEMP/nativekit-release.jks"
+        run: rm -f "$RUNNER_TEMP/nativekit-release.jks" "$RUNNER_TEMP/nativekit-test.jks"
