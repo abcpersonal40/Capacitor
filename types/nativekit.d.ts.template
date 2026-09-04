@@ -642,6 +642,7 @@ interface NativeKitAPI {
   widget: {
     supported(): boolean;
     listConfigs(): Promise<Record<string, NativeKitWidgetSpec>>;
+    getConfig(kind: string): Promise<{ kind: string; config: NativeKitWidgetSpec | null }>;
     setConfig(kind: string, config: NativeKitWidgetSpec): Promise<{ kind: string; saved: boolean }>;
     update(kind: string, config: NativeKitWidgetSpec): Promise<{ kind: string; saved: boolean }>;
     reload(kind?: string): Promise<{ updated: number }>;

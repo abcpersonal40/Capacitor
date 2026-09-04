@@ -62,6 +62,12 @@ export interface WidgetConfig {
   /** Snapshot render size in px (default 320x320); scaled to the widget by fitXY. */
   widthPx?: number;
   heightPx?: number;
+  /** Tap a dedicated action button. Any string the host app maps to a callback. */
+  action?: string;
+  /** Payload handed to the action callback. */
+  actionValue?: string;
+  /** Label for the action button (default "Open"). */
+  buttonLabel?: string;
   /**
    * Optional free-form metadata. NOTE: the home-screen widget is drawn with native Android
    * RemoteViews (TextView-only, rendered by the launcher), which cannot render arbitrary keys.

@@ -639,6 +639,7 @@ const NativeKit: any = {
   widget: {
     supported: (): boolean => config.features.widget && isNative,
     listConfigs: async () => { feature('widget'); requireNative(); return Widget.listConfigs(); },
+    getConfig: async (kind: string) => { feature('widget'); requireNative(); return Widget.getConfig({ kind }); },
     setConfig: async (kind: string, widgetConfig: Record<string, unknown>) => {
       feature('widget'); requireNative();
       return Widget.setConfig({ kind, config: widgetConfig });
