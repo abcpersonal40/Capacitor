@@ -47,13 +47,31 @@ If the page never finished, the 8s wait returned `null` but left the WebView run
 timeout we post `destroy(liveWv.get())` to the main thread.
 
 ## Static verification
-- Widget suite: **17/17 pass** (`tests/widget.test.ts`).
+- Full JS test suite: **111/111 pass** across 9 files (added `tests/widget-api.test.ts`).
+- **Differential/executable contract suite** (`tests/widget-api.test.ts`, 9 tests) runs real logic:
+  `validateConfig()` on the real `app.config.json` → **PASS**; `resolveInsideRoot()` blocks
+  `../etc/passwd`, `../../x`, `/etc/hosts`, `a/../../b` and allows in-root paths.
+  It also enforces, at test time, that:
+  - every plugin `@PluginMethod` is wired through `bridge/nativekit.ts` **and** declared in
+    `plugins/widget/index.d.ts`,
+  - `getConfig` is surfaced consistently (plugin → `index.d.ts` → template → bridge),
+  - every page `NativeKitFloating.*` call maps to a native `@JavascriptInterface` method,
+  - no demo `data-action` button is dead (each has a handler in `www/app.js`),
+  - `WidgetConfig` fields match across `index.d.ts` and the template,
+  - the HTML-snapshot mode is wired end-to-end (renderer/provider/layout).
 - Java code-brace balance **0** in all widget `.java` files (scanner-based, comments/strings skipped).
 - All `res/layout/*.xml` well-formed; `widget_html.xml` + `widget_no_*.xml` define the expected ids.
 - `build-bridge.mjs` regenerates `.nativekit/bridge/nativekit.d.ts`; `WidgetConfig` carries
-  `render/html/htmlBaseUrl/widthPx/heightPx`. `node --check www/app.js` OK.
+  `render/html/htmlBaseUrl/widthPx/heightPx` and now `getConfig` is on the bridge too.
+  `node --check www/app.js` OK; `tsc --noEmit` clean.
 - `configure-native.mjs` leaves `android/app/build.gradle` identical to HEAD.
 - Android compile is verified by **CI** (the local sandbox has no `android.jar`).
+
+## Contract drifts caught by the new suite & fixed
+- **`NativeKit.widget.getConfig` was missing from the bridge wrapper and the template type** (the
+  plugin and `index.d.ts` had it). Now threaded end-to-end.
+- **`WidgetConfig` in `plugins/widget/index.d.ts` was missing the `action` / `actionValue` /
+  `buttonLabel` declarations** (the Java renderer and template used them; the web types did not).
 
 ## Residual risks (documented, not fully testable here)
 - **Offscreen WebView capture is best-effort**: `setLayerType(SOFTWARE)` + `draw()` is the documented
