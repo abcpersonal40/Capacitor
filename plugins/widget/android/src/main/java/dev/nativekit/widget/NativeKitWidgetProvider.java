@@ -5,6 +5,8 @@ import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
@@ -87,13 +89,13 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
         // Defensively-final local so lambdas below can capture it; a reassigned parameter is
         // not "effectively final" and would not compile.
         final JSONObject cfg = config != null ? config : new JSONObject();
+        // 'layout' is either a bundled preset (small|medium|large) or any layout resource the app
+        // ships (free design): the developer designs its own RemoteViews XML (RelativeLayout,
+        // gradients, ImageView, Button...) and references it by name. We still fill the SAME id
+        // contract below (widget_value/title/subtitle/icon/image/progress/button/root), so a fully
+        // custom look works with zero layout code in this plugin.
         String layoutName = cfg.optString("layout", "medium");
-        int layoutRes;
-        switch (layoutName) {
-            case "small": layoutRes = R.layout.widget_small; break;
-            case "large": layoutRes = R.layout.widget_large; break;
-            default: layoutRes = R.layout.widget_medium; break;
-        }
+        int layoutRes = resolveLayout(context, layoutName);
         RemoteViews views = new RemoteViews(context.getPackageName(), layoutRes);
 
         boolean has = cfg.has("value");
@@ -114,10 +116,18 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
             views.setViewVisibility(R.id.widget_icon, showIcon ? View.VISIBLE : View.GONE);
         });
 
-        // Colors are passed as hex strings to stay clear of Java int-overflow issues. Defaults keep
-        // the shipped dark palette; each can be overridden by the developer from web.
-        safe(views, R.id.widget_root, () -> views.setInt(R.id.widget_root, "setBackgroundColor",
-                WidgetStore.color(cfg, "backgroundColor", 0xFF0F172A)));
+        // Real image via an ImageView: either a bundled drawable name ('image') or a base64
+        // data-URI bitmap ('imageData'). RemoteViews supports setImageViewResource/Bitmap; a
+        // missing widget_image id is safely skipped (so bundled layouts without it still work).
+        applyImage(views, context, cfg);
+
+        // Colors are passed as hex strings to stay clear of Java int-overflow issues. Only set a
+        // background at runtime when the developer explicitly asks — a custom layout that uses a
+        // drawable/gradient (e.g. @drawable/... in XML) keeps its design when no color is passed.
+        if (cfg.has("backgroundColor")) {
+            safe(views, R.id.widget_root, () -> views.setInt(R.id.widget_root, "setBackgroundColor",
+                    WidgetStore.color(cfg, "backgroundColor", 0xFF0F172A)));
+        }
         final int valueColor = WidgetStore.color(cfg, "valueColor",
                 WidgetStore.color(cfg, "accentColor", 0xFF4FC3F7));
         safe(views, R.id.widget_value, () -> views.setTextColor(R.id.widget_value, valueColor));
@@ -183,9 +193,11 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
                 safe(views, R.id.widget_button, () -> {
                     views.setOnClickPendingIntent(R.id.widget_button, tapPi);
                     views.setViewVisibility(R.id.widget_button, View.VISIBLE);
-                    views.setTextColor(R.id.widget_button,
+                    // Only override button colors when the developer asks — otherwise a custom
+                    // layout's own drawable button (e.g. a rounded gradient) keeps its design.
+                    if (cfg.has("buttonTextColor")) views.setTextColor(R.id.widget_button,
                             WidgetStore.color(cfg, "buttonTextColor", 0xFFFFFFFF));
-                    views.setInt(R.id.widget_button, "setBackgroundColor",
+                    if (cfg.has("buttonColor")) views.setInt(R.id.widget_button, "setBackgroundColor",
                             WidgetStore.color(cfg, "buttonColor", 0xFF1E293B));
                     views.setTextViewText(R.id.widget_button, cfg.optString("buttonLabel",
                             context.getString(R.string.nativekit_widget_open)));
@@ -202,6 +214,74 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
             manager.updateAppWidget(appWidgetId, views);
         } catch (Throwable error) {
             Log.e(TAG, "updateAppWidget failed for widget " + appWidgetId, error);
+        }
+    }
+
+    /**
+     * Resolve a layout by name. The bundled presets (small|medium|large) map to our layouts. Any
+     * other name is looked up in the app's merged resources via getIdentifier so a developer can
+     * ship their own RemoteViews design (free design) and reference it by resource name. Falls back
+     * to medium when unknown.
+     */
+    private int resolveLayout(Context context, String layoutName) {
+        switch (layoutName) {
+            case "small": return R.layout.widget_small;
+            case "large": return R.layout.widget_large;
+            case "medium": return R.layout.widget_medium;
+            default:
+                if (layoutName != null && !layoutName.isEmpty()) {
+                    try {
+                        int id = context.getResources().getIdentifier(layoutName, "layout", context.getPackageName());
+                        if (id != 0) return id;
+                    } catch (Throwable error) {
+                        Log.e(TAG, "resolveLayout failed for '" + layoutName + "'", error);
+                    }
+                }
+                return R.layout.widget_medium;
+        }
+    }
+
+    /** Apply a real image (drawable name or base64 bitmap) to @+id/widget_image; safe when absent. */
+    private void applyImage(RemoteViews views, Context context, JSONObject cfg) {
+        String resName = cfg.optString("image", "");
+        if (!resName.isEmpty()) {
+            safe(views, R.id.widget_image, () -> {
+                int res = context.getResources().getIdentifier(resName, "drawable", context.getPackageName());
+                if (res != 0) {
+                    views.setImageViewResource(R.id.widget_image, res);
+                    views.setViewVisibility(R.id.widget_image, View.VISIBLE);
+                } else {
+                    views.setViewVisibility(R.id.widget_image, View.GONE);
+                }
+            });
+        } else if (cfg.has("imageData")) {
+            safe(views, R.id.widget_image, () -> {
+                Bitmap bmp = decodeBase64Image(cfg.optString("imageData", ""));
+                if (bmp != null) {
+                    views.setImageViewBitmap(R.id.widget_image, bmp);
+                    views.setViewVisibility(R.id.widget_image, View.VISIBLE);
+                } else {
+                    views.setViewVisibility(R.id.widget_image, View.GONE);
+                }
+            });
+        } else {
+            safe(views, R.id.widget_image, () -> views.setViewVisibility(R.id.widget_image, View.GONE));
+        }
+    }
+
+    /** Decode a base64 image (with or without a "data:" URI prefix) to a Bitmap, or null on failure. */
+    private static Bitmap decodeBase64Image(String data) {
+        try {
+            if (data == null) return null;
+            String s = data;
+            int comma = data.indexOf(',');
+            boolean isDataUri = data.startsWith("data:") && comma >= 0;
+            if (isDataUri) s = data.substring(comma + 1);
+            byte[] raw = android.util.Base64.decode(s, android.util.Base64.DEFAULT);
+            return BitmapFactory.decodeByteArray(raw, 0, raw.length);
+        } catch (Throwable error) {
+            Log.e(TAG, "decode base64 image failed (skipped)", error);
+            return null;
         }
     }
 

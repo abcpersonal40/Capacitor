@@ -2,8 +2,13 @@ import type { Plugin, PluginListenerHandle } from '@capacitor/core';
 
 /** A home-screen widget visual spec pushed from web. */
 export interface WidgetConfig {
-  /** Layout variant the RemoteViews renderer picks. */
-  layout?: 'small' | 'medium' | 'large';
+  /**
+   * Layout variant. Either a bundled preset ('small' | 'medium' | 'large') or the name of a layout
+   * resource your app ships (e.g. 'my_dashboard') for a fully custom RemoteViews design using the
+   * same id contract (widget_root/widget_value/widget_title/widget_subtitle/widget_icon/widget_image/
+   * widget_progress/widget_button). Gradient/rounded drawables, ImageView and Button are all supported.
+   */
+  layout?: 'small' | 'medium' | 'large' | (string & {});
   /** Big headline text (e.g. a count, time, temperature). */
   value?: string;
   /** Heading above the value. */
@@ -38,6 +43,10 @@ export interface WidgetConfig {
   progressMax?: number;
   /** Emoji/glyph shown as the header icon (optional). */
   icon?: string;
+  /** A drawable resource name (bundled in your app) shown via an ImageView (@+id/widget_image). */
+  image?: string;
+  /** A base64 PNG/JPEG (optionally a "data:" URI) decoded to a Bitmap and shown via ImageView. */
+  imageData?: string;
   /**
    * Optional free-form metadata. NOTE: the home-screen widget is drawn with native Android
    * RemoteViews (TextView-only, rendered by the launcher), which cannot render arbitrary keys.

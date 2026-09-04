@@ -2,10 +2,17 @@
 
 The home-screen widget is drawn by the **launcher** with Android `RemoteViews`, so it cannot run
 arbitrary HTML/CSS/JS the way the floating overlay can. But it **is** richer than a fixed template:
-`RemoteViews` supports text, colors, sizes, gravity, and a `ProgressBar`. This page documents the
-full `WidgetConfig` surface that a web developer can push per kind via
-`NativeKit.widget.setConfig(kind, spec)` / `update(kind, spec)`, so **every declared field actually
-renders** — no hard-coded template.
+
+- `RemoteViews` supports `FrameLayout`/`LinearLayout`/`RelativeLayout`/`GridLayout` plus
+  `TextView`/`ImageView`/`ImageButton`/`Button`/`ProgressBar`/`Chronometer`/collection views
+  (`ListView`/`GridView`/`StackView`/`ViewFlipper`). Descendants / custom views are not supported.
+- **WebView/HTML is impossible on a home-screen widget** — the widget is inflated in the launcher
+  process from a `@RemoteView` whitelist. A WebView is not supported; the common workaround
+  (offscreen WebView → Bitmap → `ImageView`) needs the overlay permission and is unreliable.
+
+The **real design surface** is therefore a **layout resource your app ships**. This page documents
+the fields that actually render (`WidgetConfig`) **plus** how to use a **fully custom layout** by
+referencing a resource name, so a developer can design freely inside RemoteViews' rules.
 
 > For unlimited HTML design, use the floating overlay (`showFloating`, see
 > `docs/WIDGET_FULL_CUSTOMIZATION.md`). This doc is the home-screen counterpart.
@@ -17,11 +24,13 @@ renders** — no hard-coded template.
 ### Content
 | Field | Type | Effect |
 |-------|------|--------|
-| `layout` | `'small' \| 'medium' \| 'large'` | Picks the RemoteViews layout (default `medium`). |
+| `layout` | `'small' \| 'medium' \| 'large' \| '<res>'` | Bundled preset, **or the name of a layout resource your app ships** (free design). |
 | `value` | `string` | Primary value text (big number, time, temp). |
 | `title` | `string` | Heading (default `NativeKit`). |
 | `subtitle` | `string` | Supporting line (hidden if empty/absent). |
 | `icon` | `string` | Emoji/glyph header icon (hidden if absent). |
+| `image` | `string` | A drawable resource name shown via an `ImageView` (`@+id/widget_image`). |
+| `imageData` | `string` | A base64 PNG/JPEG (or `data:` URI) decoded to a Bitmap and shown via `ImageView`. |
 
 ### Layout & alignment
 | Field | Type | Effect |
@@ -69,11 +78,43 @@ renders** — no hard-coded template.
 - The generated `Widget_<Kind>` provider (per declared kind in `app.config.json`) reads the stored
   spec and renders via `NativeKitWidgetProvider.render()`. Every view op is wrapped in `safe()` so a
   bad value (missing view id, malformed color) is **logged and skipped** — it can never crash the app.
+- **Layout resolution:** `layout` is a bundled preset (`small`/`medium`/`large`) OR any resource the
+  app ships. `render()` resolves it with `getIdentifier(name, "layout", packageName)`, so a developer
+  can ship their own `RemoteViews` layout (RelativeLayout + gradient drawable + ImageView + Button)
+  and reference it by name. That layout only has to declare the same ids the renderer fills:
+  `widget_root`, `widget_value`, `widget_title`, `widget_subtitle`, `widget_icon`, `widget_image`,
+  `widget_progress`, `widget_button`. Missing ids are skipped (safe).
+- Runtime `setBackgroundColor` is only applied when `backgroundColor` is passed, so a custom layout's
+  own drawable background/gradient keeps its design. Same for button colors.
 - Color hex parsing lives in `WidgetStore.color()` (tolerant of bad input → falls back).
-- Text sizes use `RemoteViews.setFloat(viewId, "setTextSize", sp)`, which is the legal way to apply a
-  float property — no new layout needed.
+- Text sizes use `RemoteViews.setFloat(viewId, "setTextSize", sp)`, the legal way to apply a float
+  property — no new layout needed.
 - A `progress` value draws the `@+id/widget_progress` horizontal bar present in the `medium`/`large`
   layouts (`small` has no bar; it is simply hidden).
+- `image` uses `RemoteViews.setImageViewResource`; `imageData` decodes base64 → `Bitmap` →
+  `setImageViewBitmap`. Both target `@+id/widget_image`.
+
+### Free-design layout example (ship your own XML)
+```xml
+<!-- res/layout/my_dashboard.xml -->
+<RelativeLayout ... android:id="@+id/widget_root"
+    android:background="@drawable/my_bg_gradient">
+  <ImageView android:id="@+id/widget_image" ... android:src="@drawable/my_badge"/>
+  <TextView  android:id="@+id/widget_value" .../>
+  ...
+  <Button    android:id="@+id/widget_button" ... android:background="@drawable/my_btn"/>
+</RelativeLayout>
+```
+```js
+await NativeKit.widget.update('nativekit-widget', {
+  layout: 'my_dashboard',   // resolved from your APK resources
+  value: '42', title: 'Battery', image: 'my_badge',
+  valueColor: '#4FC3F7', titleColor: '#E2E8F0',
+  progress: 42, progressMax: 100, action: 'open-detail', buttonLabel: 'Open',
+});
+```
+`widget_hero` (shipped in this repo) is a working example: RelativeLayout + gradient bg +
+ImageView + rounded Button.
 
 ## 3. Example (all from web)
 ```js

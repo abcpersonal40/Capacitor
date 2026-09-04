@@ -183,6 +183,16 @@ const actions = {
       align: 'start', action: 'open-counter', actionValue: JSON.stringify({ count: widgetCount }) };
     return window.NativeKit.widget.update('nativekit-widget', spec);
   },
+  widgethero: async () => {
+    // Free-design mode: reference a layout resource your app ships ('hero') — RelativeLayout +
+    // gradient background + ImageView + rounded Button, all baked into the XML. The renderer fills
+    // the same id contract, so it works with zero layout code here.
+    const spec = { layout: 'hero', value: String(widgetCount), title: 'NativeKit', subtitle: 'Free design',
+      valueColor: '#4FC3F7', titleColor: '#E2E8F0', subtitleColor: '#94A3B8',
+      image: 'widget_hero_badge', progress: (widgetCount % 100), progressMax: 100,
+      action: 'open-counter', actionValue: JSON.stringify({ count: widgetCount }), buttonLabel: 'Open' };
+    return window.NativeKit.widget.update('nativekit-widget', spec);
+  },
   widgetreload: () => window.NativeKit.widget.reload('nativekit-widget'),
   widgetpin: () => window.NativeKit.widget.requestPin('nativekit-widget'),
   floatcheck: () => window.NativeKit.widget.checkFloatingPermission(),

@@ -65,7 +65,7 @@ interface NativeKitWidgetConfig {
 }
 
 interface NativeKitWidgetSpec {
-  layout?: 'small' | 'medium' | 'large';
+  layout?: 'small' | 'medium' | 'large' | (string & {});
   value?: string;
   title?: string;
   subtitle?: string;
@@ -83,6 +83,8 @@ interface NativeKitWidgetSpec {
   progress?: number;
   progressMax?: number;
   icon?: string;
+  image?: string;
+  imageData?: string;
   action?: string;
   actionValue?: string;
   buttonLabel?: string;
