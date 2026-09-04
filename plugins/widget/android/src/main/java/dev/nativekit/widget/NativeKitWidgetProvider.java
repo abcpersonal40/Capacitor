@@ -114,13 +114,49 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
             views.setViewVisibility(R.id.widget_icon, showIcon ? View.VISIBLE : View.GONE);
         });
 
-        // Colors are passed as hex strings to stay clear of Java int-overflow issues.
+        // Colors are passed as hex strings to stay clear of Java int-overflow issues. Defaults keep
+        // the shipped dark palette; each can be overridden by the developer from web.
         safe(views, R.id.widget_root, () -> views.setInt(R.id.widget_root, "setBackgroundColor",
                 WidgetStore.color(cfg, "backgroundColor", 0xFF0F172A)));
-        safe(views, R.id.widget_value, () -> views.setTextColor(R.id.widget_value,
-                WidgetStore.color(cfg, "accentColor", 0xFF4FC3F7)));
-        safe(views, R.id.widget_title, () -> views.setTextColor(R.id.widget_title, 0xFFFFFFFF));
-        safe(views, R.id.widget_subtitle, () -> views.setTextColor(R.id.widget_subtitle, 0xFFB0BEC5));
+        final int valueColor = WidgetStore.color(cfg, "valueColor",
+                WidgetStore.color(cfg, "accentColor", 0xFF4FC3F7));
+        safe(views, R.id.widget_value, () -> views.setTextColor(R.id.widget_value, valueColor));
+        safe(views, R.id.widget_title, () -> views.setTextColor(R.id.widget_title,
+                WidgetStore.color(cfg, "titleColor", 0xFFFFFFFF)));
+        safe(views, R.id.widget_subtitle, () -> views.setTextColor(R.id.widget_subtitle,
+                WidgetStore.color(cfg, "subtitleColor", 0xFFB0BEC5)));
+
+        // Numeric text sizes (sp). A developer can scale value/title/subtitle without shipping a new
+        // layout — RemoteViews.setFloat(...,"setTextSize",...) is the legal way to set a float prop.
+        if (cfg.has("valueSize")) safe(views, R.id.widget_value, () ->
+                views.setFloat(R.id.widget_value, "setTextSize", (float) cfg.optDouble("valueSize", 40)));
+        if (cfg.has("titleSize")) safe(views, R.id.widget_title, () ->
+                views.setFloat(R.id.widget_title, "setTextSize", (float) cfg.optDouble("titleSize", 14)));
+        if (cfg.has("subtitleSize")) safe(views, R.id.widget_subtitle, () ->
+                views.setFloat(R.id.widget_subtitle, "setTextSize", (float) cfg.optDouble("subtitleSize", 11)));
+
+        // Horizontal alignment of the widget content (root gravity): 'start' | 'center' | 'end'.
+        String align = cfg.optString("align", "center");
+        final int alignGravity;
+        switch (align) {
+            case "start": alignGravity = Gravity.START | Gravity.CENTER_VERTICAL; break;
+            case "end":   alignGravity = Gravity.END | Gravity.CENTER_VERTICAL; break;
+            default:      alignGravity = Gravity.CENTER; break;
+        }
+        safe(views, R.id.widget_root, () -> views.setInt(R.id.widget_root, "setGravity", alignGravity));
+
+        // Optional progress / level bar (only honored on layouts that include widget_progress).
+        if (cfg.has("progress")) {
+            safe(views, R.id.widget_progress, () -> {
+                int progress = cfg.optInt("progress", 0);
+                int max = cfg.optInt("progressMax", 100);
+                views.setInt(R.id.widget_progress, "setMax", Math.max(1, max));
+                views.setInt(R.id.widget_progress, "setProgress", Math.max(0, Math.min(progress, max)));
+                views.setViewVisibility(R.id.widget_progress, View.VISIBLE);
+            });
+        } else {
+            safe(views, R.id.widget_progress, () -> views.setViewVisibility(R.id.widget_progress, View.GONE));
+        }
 
         // Whole widget tap -> open the app (always works, even when the web bridge is not up yet).
         Intent open = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
@@ -147,6 +183,10 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
                 safe(views, R.id.widget_button, () -> {
                     views.setOnClickPendingIntent(R.id.widget_button, tapPi);
                     views.setViewVisibility(R.id.widget_button, View.VISIBLE);
+                    views.setTextColor(R.id.widget_button,
+                            WidgetStore.color(cfg, "buttonTextColor", 0xFFFFFFFF));
+                    views.setInt(R.id.widget_button, "setBackgroundColor",
+                            WidgetStore.color(cfg, "buttonColor", 0xFF1E293B));
                     views.setTextViewText(R.id.widget_button, cfg.optString("buttonLabel",
                             context.getString(R.string.nativekit_widget_open)));
                 });

@@ -17,7 +17,18 @@ const widgetBaseSpec = {
   title: 'NativeKit',
   subtitle: 'Counter',
   accentColor: '#4FC3F7',
+  valueColor: '#4FC3F7',
+  titleColor: '#FFFFFF',
+  subtitleColor: '#B0BEC5',
   backgroundColor: '#0F172A',
+  buttonColor: '#1E293B',
+  buttonTextColor: '#FFFFFF',
+  valueSize: 40,
+  titleSize: 14,
+  subtitleSize: 11,
+  align: 'center',
+  progress: 0,
+  progressMax: 100,
   action: 'open-counter',
   buttonLabel: 'Open',
 };
@@ -155,12 +166,21 @@ const actions = {
     return window.NativeKit.backgroundLocation.status();
   },
   widgetset: async () => {
-    const spec = { ...widgetBaseSpec, value: String(widgetCount), actionValue: JSON.stringify({ count: widgetCount }) };
+    const spec = { ...widgetBaseSpec, value: String(widgetCount), progress: (widgetCount % 100), actionValue: JSON.stringify({ count: widgetCount }) };
     return window.NativeKit.widget.setConfig('nativekit-widget', spec);
   },
   widgetinc: async () => {
     widgetCount += 1;
-    const spec = { ...widgetBaseSpec, value: String(widgetCount), actionValue: JSON.stringify({ count: widgetCount }) };
+    const spec = { ...widgetBaseSpec, value: String(widgetCount), progress: (widgetCount % 100), actionValue: JSON.stringify({ count: widgetCount }) };
+    return window.NativeKit.widget.update('nativekit-widget', spec);
+  },
+  widgetstyle: async () => {
+    // Rich style round-trip: recolor, resize text, right-align, and show a progress bar —
+    // all from web with no new layout.
+    const spec = { ...widgetBaseSpec, layout: 'large', value: String(widgetCount), progress: (widgetCount % 100),
+      backgroundColor: '#052e16', accentColor: '#34d399', titleColor: '#ecfdf5', subtitleColor: '#6ee7b7',
+      buttonColor: '#065f46', buttonTextColor: '#ecfdf5', valueSize: 64, titleSize: 16, subtitleSize: 12,
+      align: 'start', action: 'open-counter', actionValue: JSON.stringify({ count: widgetCount }) };
     return window.NativeKit.widget.update('nativekit-widget', spec);
   },
   widgetreload: () => window.NativeKit.widget.reload('nativekit-widget'),

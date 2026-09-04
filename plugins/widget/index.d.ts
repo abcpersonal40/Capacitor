@@ -12,16 +12,32 @@ export interface WidgetConfig {
   subtitle?: string;
   /** Hex background color, e.g. "#0F172A". */
   backgroundColor?: string;
+  /** Hex value color. Alias of `accentColor` (kept for parity with the floating options). */
+  valueColor?: string;
   /** Hex accent (value) color, e.g. "#2563EB". */
   accentColor?: string;
+  /** Hex title color (default white). */
+  titleColor?: string;
+  /** Hex subtitle color (default slate). */
+  subtitleColor?: string;
+  /** Hex action-button background (default "#1E293B"). */
+  buttonColor?: string;
+  /** Hex action-button text color (default white). */
+  buttonTextColor?: string;
+  /** Value text size in sp (default is the layout's size). */
+  valueSize?: number;
+  /** Title text size in sp. */
+  titleSize?: number;
+  /** Subtitle text size in sp. */
+  subtitleSize?: number;
+  /** Horizontal content alignment: 'start' | 'center' (default) | 'end'. */
+  align?: 'start' | 'center' | 'end';
+  /** Progress/level value 0..progressMax drawn as a horizontal bar (medium/large layouts). */
+  progress?: number;
+  /** Max of the progress bar (default 100). */
+  progressMax?: number;
   /** Emoji/glyph shown as the header icon (optional). */
   icon?: string;
-  /** Tap a dedicated action button. Any string the host app maps to a callback. */
-  action?: string;
-  /** Payload handed to the action callback. */
-  actionValue?: string;
-  /** Label for the action button (default "Open"). */
-  buttonLabel?: string;
   /**
    * Optional free-form metadata. NOTE: the home-screen widget is drawn with native Android
    * RemoteViews (TextView-only, rendered by the launcher), which cannot render arbitrary keys.
