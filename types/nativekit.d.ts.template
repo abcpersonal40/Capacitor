@@ -85,6 +85,11 @@ interface NativeKitWidgetSpec {
   icon?: string;
   image?: string;
   imageData?: string;
+  render?: 'native' | 'html';
+  html?: string;
+  htmlBaseUrl?: string;
+  widthPx?: number;
+  heightPx?: number;
   action?: string;
   actionValue?: string;
   buttonLabel?: string;

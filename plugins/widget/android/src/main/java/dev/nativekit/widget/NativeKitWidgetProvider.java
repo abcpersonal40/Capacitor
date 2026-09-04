@@ -89,6 +89,15 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
         // Defensively-final local so lambdas below can capture it; a reassigned parameter is
         // not "effectively final" and would not compile.
         final JSONObject cfg = config != null ? config : new JSONObject();
+
+        // HTML/CSS/JS mode: render the developer's page to a bitmap and show it in an ImageView.
+        // This is the only way to get a live-HTML design onto a home-screen widget (RemoteViews
+        // cannot host a WebView). It is a static snapshot; re-update to refresh.
+        if (HtmlWidgetRenderer.isHtmlMode(cfg)) {
+            renderHtmlWidget(context, manager, appWidgetId, cfg);
+            return;
+        }
+
         // 'layout' is either a bundled preset (small|medium|large) or any layout resource the app
         // ships (free design): the developer designs its own RemoteViews XML (RelativeLayout,
         // gradients, ImageView, Button...) and references it by name. We still fill the SAME id
@@ -215,6 +224,63 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
         } catch (Throwable error) {
             Log.e(TAG, "updateAppWidget failed for widget " + appWidgetId, error);
         }
+    }
+
+    /**
+     * Render an HTML/CSS/JS design (inline {@code html} or a bundled {@code page}) to a bitmap and
+     * show it in the widget's full-bleed {@code widget_html} ImageView. The layout used is the
+     * {@code widget_html} container (or a custom layout carrying {@code widget_html}); the native
+     * text/icon/button views are hidden and the whole widget tap opens the app. Rendering is
+     * async (offscreen WebView -> bitmap); failure simply leaves the ImageView hidden.
+     */
+    private void renderHtmlWidget(Context context, AppWidgetManager manager, int appWidgetId, JSONObject cfg) {
+        try {
+            int widthPx = cfg.optInt("widthPx", 320);
+            int heightPx = cfg.optInt("heightPx", 320);
+            int layoutRes = resolveHtmlLayout(context, cfg.optString("layout", ""));
+            HtmlWidgetRenderer.render(context, cfg, widthPx, heightPx, (bitmap) -> {
+                android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+                main.post(() -> {
+                    try {
+                        RemoteViews views = new RemoteViews(context.getPackageName(), layoutRes);
+                        if (bitmap != null) {
+                            views.setImageViewBitmap(R.id.widget_html, bitmap);
+                            views.setViewVisibility(R.id.widget_html, View.VISIBLE);
+                        }
+                        // Whole widget tap -> open the app.
+                        Intent open = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+                        if (open != null) {
+                            open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            try {
+                                PendingIntent openPi = PendingIntent.getActivity(context, requestCode(kind(), 1), open,
+                                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                                safe(views, R.id.widget_root, () -> views.setOnClickPendingIntent(R.id.widget_root, openPi));
+                            } catch (Throwable error) {
+                                Log.e(TAG, "html widget open pending intent failed", error);
+                            }
+                        }
+                        manager.updateAppWidget(appWidgetId, views);
+                    } catch (Throwable error) {
+                        Log.e(TAG, "html widget update failed for " + appWidgetId, error);
+                    }
+                });
+            });
+        } catch (Throwable error) {
+            Log.e(TAG, "renderHtmlWidget failed for widget " + appWidgetId, error);
+        }
+    }
+
+    /** Pick the container layout for an HTML widget; defaults to the bundled {@code widget_html}. */
+    private int resolveHtmlLayout(Context context, String layoutName) {
+        if (layoutName != null && !layoutName.isEmpty()) {
+            try {
+                int id = context.getResources().getIdentifier(layoutName, "layout", context.getPackageName());
+                if (id != 0) return id;
+            } catch (Throwable error) {
+                Log.e(TAG, "resolveHtmlLayout failed for '" + layoutName + "'", error);
+            }
+        }
+        return R.layout.widget_html;
     }
 
     /**

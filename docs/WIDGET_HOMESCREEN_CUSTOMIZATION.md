@@ -61,12 +61,25 @@ referencing a resource name, so a developer can design freely inside RemoteViews
 | `progress` | Value `0..progressMax` drawn as a horizontal `ProgressBar` (medium/large layouts). When absent the bar is hidden. |
 | `progressMax` | Max of the bar (default `100`). |
 
-### Interaction
-| Field | Effect |
-|-------|--------|
-| `action` | String identifier mapped by the host app → emits `nativeWidgetTap`. If absent, the button is hidden. |
-| `actionValue` | Payload handed to the action callback. |
-| `buttonLabel` | Action-button label (default `Open`). |
+### Interaction / HTML mode
+| Field | Type | Effect |
+|-------|------|--------|
+| `action` | `string` | String identifier mapped by the host app → emits `nativeWidgetTap`. If absent, the button is hidden. |
+| `actionValue` | `string` | Payload handed to the action callback. |
+| `buttonLabel` | `string` | Action-button label (default `Open`). |
+| `render` | `'native' \| 'html'` | `native` (default) draws preset RemoteViews. `html` renders an inline `html` string or a bundled `page` to a **snapshot bitmap**. |
+| `html` | `string` | Inline HTML/CSS/JS rendered via an offscreen WebView (overrides `page`). |
+| `htmlBaseUrl` | `string` | Base URL for relative assets in `html` (default the asset-loader host). |
+| `widthPx` / `heightPx` | `number` | Snapshot render size in px (default `320x320`), scaled to the widget by `fitXY`. |
+| `page` | `string` | When `render:'html'`, a bundled page under `public/` rendered to a snapshot. |
+
+> **HTML mode is a static snapshot, not a live WebView.** A home-screen widget is inflated by the
+> launcher from a RemoteViews whitelist, so it physically cannot host an interactive WebView. Instead
+> the HTML/CSS/JS is rendered offscreen to a bitmap and shown full-bleed via `@+id/widget_html`.
+> Re-trigger a widget update (e.g. `reload()` / `update()`) to refresh it. For a **live, interactive
+> HTML/CSS/JS panel — animations, input, two-way messaging — use the floating overlay**
+> (`showFloating`, see `docs/WIDGET_FULL_CUSTOMIZATION.md`), which is a real WebView and the true
+> "design freely from HTML" target.
 
 > `extra` is accepted as metadata but **not rendered** — the home-screen RemoteViews renderer cannot
 > draw arbitrary keys. Pass the known fields above instead, or use a floating page for full HTML.
@@ -115,6 +128,30 @@ await NativeKit.widget.update('nativekit-widget', {
 ```
 `widget_hero` (shipped in this repo) is a working example: RelativeLayout + gradient bg +
 ImageView + rounded Button.
+
+### HTML/CSS/JS mode (snapshot) example
+```js
+await NativeKit.widget.update('nativekit-widget', {
+  render: 'html',
+  html: '<!doctype html>...your css...<div class="v">42</div>...',
+  widthPx: 320, heightPx: 160,
+});
+// or a bundled page:
+await NativeKit.widget.update('nativekit-widget', {
+  render: 'html', page: 'public/widgets/my_card.html',
+});
+```
+The HTML is drawn to a bitmap by `HtmlWidgetRenderer` (offscreen WebView → `webView.draw(canvas)`
+with `enableSlowWholeDocumentDraw()`), cached, and displayed via `@+id/widget_html` (full-bleed,
+`fitXY`). A whole-widget tap opens the app. If rendering fails, the ImageView is hidden (safe).
+
+### Where the three customization tiers land
+| Target | How | Live/interactive? |
+|--------|-----|-------------------|
+| Floating overlay | `showFloating` with `page` or `html` — a real WebView | ✅ Yes (2-way messaging, JS, animations) |
+| Home-screen widget (preset) | `layout`/colors/sizes/align/progress/image | ❌ Static |
+| Home-screen widget (free layout) | own RemoteViews XML referenced by `layout` | ❌ Static |
+| Home-screen widget (HTML) | `render:'html'` → WebView snapshot | ❌ Static snapshot (refresh on update) |
 
 ## 3. Example (all from web)
 ```js

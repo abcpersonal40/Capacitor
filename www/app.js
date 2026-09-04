@@ -193,6 +193,14 @@ const actions = {
       action: 'open-counter', actionValue: JSON.stringify({ count: widgetCount }), buttonLabel: 'Open' };
     return window.NativeKit.widget.update('nativekit-widget', spec);
   },
+  widgethtml: async () => {
+    // HTML/CSS/JS on the HOME-SCREEN widget: the developer's HTML is rendered to a snapshot bitmap.
+    // (Static snapshot; re-update to refresh. Live/interactive HTML lives on the floating overlay.)
+    const html = '<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;font-family:system-ui;background:linear-gradient(150deg,#7c3aed,#2563eb);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;user-select:none}p{margin:0;font-size:15px;opacity:.9}.v{font-size:44px;font-weight:800}</style></head><body><div class="v">' + widgetCount + '</div><p>HTML widget on home screen</p></body></html>';
+    const res = await window.NativeKit.widget.setConfig('nativekit-widget', { render: 'html', html, widthPx: 320, heightPx: 160, action: 'open-counter', actionValue: JSON.stringify({ count: widgetCount }) });
+    await window.NativeKit.widget.reload('nativekit-widget');
+    return { ...res, hint: 'Home-screen widget agora HTML-diya render hocche (snapshot). Live HTML floating-e।' };
+  },
   widgetreload: () => window.NativeKit.widget.reload('nativekit-widget'),
   widgetpin: () => window.NativeKit.widget.requestPin('nativekit-widget'),
   floatcheck: () => window.NativeKit.widget.checkFloatingPermission(),

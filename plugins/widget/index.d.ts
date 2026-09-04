@@ -47,6 +47,21 @@ export interface WidgetConfig {
   image?: string;
   /** A base64 PNG/JPEG (optionally a "data:" URI) decoded to a Bitmap and shown via ImageView. */
   imageData?: string;
+
+  /**
+   * Render mode for the home-screen widget. 'native' (default) draws the preset RemoteViews.
+   * 'html' renders an inline `html` string or a bundled `page` (your HTML/CSS/JS) to a snapshot
+   * bitmap shown full-bleed. NOTE: this is a static snapshot (re-update to refresh), not a live,
+   * interactive WebView — that only exists on the floating overlay.
+   */
+  render?: 'native' | 'html';
+  /** Inline HTML used when render:'html' (overrides page). Rendered via an offscreen WebView. */
+  html?: string;
+  /** Base URL for relative assets in `html` (default the asset-loader host). */
+  htmlBaseUrl?: string;
+  /** Snapshot render size in px (default 320x320); scaled to the widget by fitXY. */
+  widthPx?: number;
+  heightPx?: number;
   /**
    * Optional free-form metadata. NOTE: the home-screen widget is drawn with native Android
    * RemoteViews (TextView-only, rendered by the launcher), which cannot render arbitrary keys.
