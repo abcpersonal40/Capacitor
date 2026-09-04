@@ -247,16 +247,34 @@ public abstract class NativeKitWidgetProvider extends AppWidgetProvider {
                             views.setImageViewBitmap(R.id.widget_html, bitmap);
                             views.setViewVisibility(R.id.widget_html, View.VISIBLE);
                         }
-                        // Whole widget tap -> open the app.
-                        Intent open = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
-                        if (open != null) {
-                            open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        // Whole widget tap: if an action is declared, emit nativeWidgetTap (like the
+                        // native layout); otherwise open the app. Keeps the HTML widget interactive
+                        // at the same level as the preset layouts.
+                        String action = cfg.optString("action", "");
+                        if (!action.isEmpty()) {
+                            Intent tap = new Intent(context, getClass()).setAction(ACTION_TAP);
+                            tap.putExtra("id", appWidgetId);
+                            tap.putExtra("kind", kind());
+                            tap.putExtra("action", action);
+                            if (cfg.has("actionValue")) tap.putExtra("value", cfg.optString("actionValue"));
                             try {
-                                PendingIntent openPi = PendingIntent.getActivity(context, requestCode(kind(), 1), open,
+                                PendingIntent tapPi = PendingIntent.getBroadcast(context, requestCode(kind(), 2), tap,
                                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-                                safe(views, R.id.widget_root, () -> views.setOnClickPendingIntent(R.id.widget_root, openPi));
+                                safe(views, R.id.widget_root, () -> views.setOnClickPendingIntent(R.id.widget_root, tapPi));
                             } catch (Throwable error) {
-                                Log.e(TAG, "html widget open pending intent failed", error);
+                                Log.e(TAG, "html widget tap pending intent failed", error);
+                            }
+                        } else {
+                            Intent open = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+                            if (open != null) {
+                                open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                try {
+                                    PendingIntent openPi = PendingIntent.getActivity(context, requestCode(kind(), 1), open,
+                                            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                                    safe(views, R.id.widget_root, () -> views.setOnClickPendingIntent(R.id.widget_root, openPi));
+                                } catch (Throwable error) {
+                                    Log.e(TAG, "html widget open pending intent failed", error);
+                                }
                             }
                         }
                         manager.updateAppWidget(appWidgetId, views);
